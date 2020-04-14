@@ -17,6 +17,7 @@ RUN apt-get install -y \
     git \
     g\+\+ \
     wget \
+    autoconf \
     unzip \
     libpcre2-dev \
     libz-dev \
@@ -28,5 +29,6 @@ RUN cd / &&\
     git clone https://github.com/Genivia/ugrep
 
 RUN cd ugrep &&\
+    autoreconf -fi &&\
     ./build.sh &&\
     make install
