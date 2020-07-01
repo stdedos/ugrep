@@ -1,0 +1,9 @@
+---
+ugrep:
+    build: .
+    command: bash -c "./build.sh && make install"
+    working_dir: /ugrep
+    volumes:
+        # - ./:/ugrep
+        - ./:/ugrep:ro
+        - ./bin:/ugrep/bin:rw

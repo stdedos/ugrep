@@ -6,12 +6,14 @@
 #
 # step 3: run ugrep in the container, for example:
 # ugrep -r -n -tjava Hello ugrep/tests/
+#
+# *This*, or get the executable out with the original version, using:
+# docker cp "$(docker run ugrep:latest hostname)":/ugrep/bin/ugrep .
 
 FROM ubuntu
+ENV DEBIAN_FRONTEND noninteractive
 
-RUN apt-get update
-
-RUN apt-get install -y \
+RUN apt-get update && apt-get install -y \
     make \
     vim \
     git \
@@ -23,10 +25,3 @@ RUN apt-get install -y \
     libbz2-dev \
     liblzma-dev \
     liblz4-dev
-
-RUN cd / &&\
-    git clone https://github.com/Genivia/ugrep
-
-RUN cd ugrep &&\
-    ./build.sh &&\
-    make install
