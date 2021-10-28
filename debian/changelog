@@ -1,0 +1,281 @@
+ugrep (3.3.8+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * Fix path for upstream-test-suite
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Tue, 26 Oct 2021 15:44:29 +0200
+
+ugrep (3.3.7+dfsg-2) unstable; urgency=medium
+
+  * Port from experimental to unstable
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Tue, 31 Aug 2021 17:00:58 +0200
+
+ugrep (3.3.7+dfsg-1) experimental; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Fri, 13 Aug 2021 09:55:28 +0200
+
+ugrep (3.3.6+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * Update automake files
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Tue, 27 Jul 2021 13:51:13 +0200
+
+ugrep (3.3.3+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Sun, 20 Jun 2021 22:56:24 +0200
+
+ugrep (3.3.2+dfsg-1) experimental; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Wed, 09 Jun 2021 20:39:53 +0200
+
+ugrep (3.3.1+dfsg-1) experimental; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Fri, 04 Jun 2021 11:04:08 +0200
+
+ugrep (3.3.0+dfsg-1) experimental; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Tue, 01 Jun 2021 17:20:27 +0200
+
+ugrep (3.2.2+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Sun, 23 May 2021 12:45:55 +0200
+
+ugrep (3.2.0+dfsg-1~bpo10+1) buster-backports; urgency=medium
+
+  * Update repo urls
+  * Add backport to buster (Closes: #988523)
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Sun, 23 May 2021 12:37:26 +0200
+
+ugrep (3.2.0+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * Add libzstd-dev, upstream adds it as an option
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Mon, 03 May 2021 07:36:04 +0200
+
+ugrep (3.1.14+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Wed, 28 Apr 2021 11:06:23 +0200
+
+ugrep (3.1.12+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Sun, 25 Apr 2021 21:31:17 +0200
+
+ugrep (3.1.11+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Mon, 05 Apr 2021 21:43:00 +0200
+
+ugrep (3.1.10+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * Remove gcc-11 patch (it has been merged upstream)
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Wed, 24 Mar 2021 10:21:34 +0100
+
+ugrep (3.1.9+dfsg-2) unstable; urgency=medium
+
+  * Fix build with gcc-11 (Closes: #984377)
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Thu, 04 Mar 2021 18:54:04 +0100
+
+ugrep (3.1.9+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Fri, 26 Feb 2021 21:29:57 +0100
+
+ugrep (3.1.8+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Wed, 24 Feb 2021 17:21:13 +0100
+
+ugrep (3.1.7+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Wed, 03 Feb 2021 11:03:40 +0100
+
+ugrep (3.1.6+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Fri, 29 Jan 2021 16:02:35 +0100
+
+ugrep (3.1.5+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Fri, 29 Jan 2021 15:33:17 +0100
+
+ugrep (3.1.4+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * Update copyright_hints
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Sun, 24 Jan 2021 21:37:41 +0100
+
+ugrep (3.1.3+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Fri, 15 Jan 2021 13:37:19 +0100
+
+ugrep (3.1.2+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Wed, 13 Jan 2021 22:27:08 +0100
+
+ugrep (3.1.1+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * Update copyright_hints
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Tue, 22 Dec 2020 17:14:11 +0100
+
+ugrep (3.1.0+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * Update Debian Policy
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Tue, 15 Dec 2020 10:23:46 +0100
+
+ugrep (3.0.6+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Sun, 06 Dec 2020 18:29:14 +0100
+
+ugrep (3.0.5+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Tue, 17 Nov 2020 20:53:17 +0100
+
+ugrep (3.0.4+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Tue, 27 Oct 2020 14:08:31 +0100
+
+ugrep (3.0.2+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * debian/copyright_hints: Update
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Sat, 24 Oct 2020 07:51:44 +0200
+
+ugrep (3.0.1+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Mon, 05 Oct 2020 20:53:31 +0200
+
+ugrep (2.5.6+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * debian/patches: Update baseline patch to latest upstram version
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Tue, 22 Sep 2020 08:10:42 +0200
+
+ugrep (2.5.4+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * debian/patches: Remove patch to fix build on hurd-i386: Merged upstream.
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Wed, 02 Sep 2020 08:01:59 +0200
+
+ugrep (2.5.3+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * debian/rules: Fix dh_clean: clean bin/ folder
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Thu, 27 Aug 2020 12:01:16 +0200
+
+ugrep (2.5.2+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * debian/patches: Fix build on hurd-i386
+  * debian/control: libpcre2 superseeds boost
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Fri, 14 Aug 2020 10:51:37 +0200
+
+ugrep (2.4.1+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * Fix baseline violation (Closes: #964957)
+  * Add liblz4-dev, upstream adds it as an option
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Mon, 27 Jul 2020 14:36:22 +0200
+
+ugrep (2.2.1+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * Remove upstreamed patches
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Mon, 15 Jun 2020 09:15:21 +0200
+
+ugrep (2.2.0+dfsg-4) unstable; urgency=medium
+
+  * Remove autotools generated files
+  * Improve copyright
+  * Fix package synopsys description (Closes: #964975)
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Fri, 05 Jun 2020 12:16:51 +0200
+
+ugrep (2.2.0+dfsg-3) unstable; urgency=medium
+
+  * Fix tests
+  * Use wildcards on lintian-override
+  * Fix copyright
+  * [Kudos to Jonas Smedegaard]
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Fri, 05 Jun 2020 00:41:04 +0200
+
+ugrep (2.2.0+dfsg-2) unstable; urgency=medium
+
+  * Spellcheck errors found by lintian
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Thu, 04 Jun 2020 20:01:37 +0200
+
+ugrep (2.2.0+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * Remove upstreamed patches
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Thu, 04 Jun 2020 19:19:45 +0200
+
+ugrep (2.1.3+dfsg-1) unstable; urgency=medium
+
+  * Update upstream version
+  * Fix multiple lintian warnings
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Mon, 25 May 2020 10:24:43 +0200
+
+ugrep (2.1.1+dfsg-1) unstable; urgency=medium
+
+  * Initial release (Closes: #961045)
+
+ -- Ricardo Ribalda Delgado <ricardo@ribalda.com>  Tue, 19 May 2020 17:58:00 +0100

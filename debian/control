@@ -1,0 +1,51 @@
+Source: ugrep
+Section: utils
+Priority: optional
+Maintainer: Stavros Ntentos <133706+stdedos@users.noreply.github.com>
+Build-Depends: debhelper-compat (= 13),
+               libbz2-dev,
+               liblzma-dev,
+               libpcre2-dev,
+               libz-dev,
+               liblz4-dev,
+               libzstd-dev,
+               pkg-config
+Standards-Version: 4.5.1
+Homepage: https://github.com/Genivia/ugrep/wiki
+Vcs-Browser: https://github.com/Genivia/ugrep
+Vcs-Git: https://github.com/Genivia/ugrep.git
+Rules-Requires-Root: no
+
+Package: ugrep
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: ultra fast grep with interactive query UI and fuzzy search
+ Universal grep: ultra fast searcher of file systems, text and
+ binary files, source code, archives, compressed files, documents, and more.
+ .
+ The main features include:
+  - Written in clean and efficient C++11, built for speed
+  - Ultra fast with new match algorithms beating grep, ripgrep, silver
+    searcher, hyperscan, etc.
+  - Multi-threaded search using high-performance lock-free job queue stealing
+  - Multi-threaded task-parallel decompression and search
+  - Optimized pattern matching (AVX, SSE2, ARM NEON/AArch64)
+  - Optimized asynchronous IO for efficient concurrent searching
+  - Thoroughly tested (includes over 1000 test cases)
+  - Compatible with the standard GNU/BSD grep command-line options
+  - Comprehensive how-to tutorial for beginners to advanced users
+  - Interactive query UI to enter search patterns
+  - Select files to search by file types, filename suffix, and "magic bytes"
+  - Search archives (cpio, jar, tar, pax, zip)
+  - Search compressed files (zip, gz, Z, bz, bz2, lzma, xz)
+  - Search pdf, doc, docx, xls, xlxs, and more using filters
+  - Search binary files and display hexdumps with binary pattern matches
+  - Search UTF-encoded files with Unicode pattern matches (by default)
+  - Search files encoded in ISO-8859-1 thru 16, CP 437, CP 850, MAC, KOI8, etc.
+  - Search files excluding files specified by .gitignore etc.
+  - Search patterns across newlines, matching multiple lines at once
+  - Search patterns excluding negative patterns ("match this but not that")
+  - Includes predefined regex patterns to search source code, XML, JSON, HTML
+  - Output results in CSV, JSON, XML, and user-specified formats
+  - Sort matching files by name, size, and time
+  - Portable, compiles and runs on Linux, Unix, Mac OS X, Windows, etc.

@@ -1,0 +1,7 @@
+.debhelper/
+debhelper-build-stamp
+autoreconf.after
+autoreconf.before
+ugrep/
+files
+ugrep.substvars

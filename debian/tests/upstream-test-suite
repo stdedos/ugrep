@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+dh clean
+dh_update_autotools_config
+dh_autoreconf
+dh_auto_configure 2>/dev/null
+dpkg-source --before-build `pwd`
+cp `which ugrep` src/ugrep
+make test

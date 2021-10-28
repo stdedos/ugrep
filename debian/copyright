@@ -1,0 +1,120 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: ugrep
+Source: https://github.com/Genivia/ugrep
+Upstream-Contact: https://github.com/Genivia/ugrep/issues
+Files-Excluded: bin/win32/ugrep.exe
+ bin/win64/ugrep.exe
+ Makefile.in
+ aclocal.m4
+ ar-lib
+ compile
+ config.guess
+ config.h.in
+ config.sub
+ configure
+ depcomp
+ install-sh
+ */Makefile.in
+ missing
+
+Files: *
+Copyright: 2016-2020 Robert van Engelen, Genivia Inc. <ravengelen@gmail.com>
+License: BSD-3-clause
+
+Files: src/zopen.c
+ src/zopen.h
+Copyright: 1985-1986, 1992-1993, The Regents of the University of California.
+License: BSD-3-clause
+
+Files: m4/ax_check_bzlib.m4
+ m4/ax_check_lzmalib.m4
+ m4/ax_check_pcre2.m4
+Copyright: 2019 Robert van Engelen <engelen@acm.org>
+License: GPL-2+
+
+Files: m4/ax_check_zlib.m4
+Copyright: 2008 Loic Dachary <loic@senga.org>
+  2010 Bastien Chevreux <bach@chevreux.org>
+License: GPL-2+
+
+Files: debian/*
+Copyright: 2018 Ricardo Ribalda Delgado <ricardo@ribalda.com>
+  2021 Stavros Ntentos <133706+stdedos@users.noreply.github.com>
+License: GPL-2+
+
+Files: m4/ax_cxx_compile_stdcxx_11.m4
+Copyright: 2008 Benjamin Kosnik <bkoz@redhat.com>
+  2012 Zack Weinberg <zackw@panix.com>
+  2013 Roy Stogner <roystgnr@ices.utexas.edu>
+  2014, 2015 Google Inc.; contributed by Alexey Sokolov <sokolov@google.com>
+  2015 Paul Norman <penorman@mac.com>
+  2015 Moritz Klammler <moritz@klammler.eu>
+License: FSFAP
+
+Files: m4/ax_boost_regex.m4
+Copyright: 2008 Thomas Porschberg <thomas@randspringer.de>
+  2008 Michael Tindal
+  2019 Robert van Engelen <engelen@acm.org>
+License: FSFAP
+
+Files: m4/ax_cxx_compile_stdcxx.m4
+Copyright: 2008 Benjamin Kosnik <bkoz@redhat.com>
+  2012 Zack Weinberg <zackw@panix.com>
+  2013 Roy Stogner <roystgnr@ices.utexas.edu>
+  2014, 2015 Google Inc.; contributed by Alexey Sokolov <sokolov@google.com>
+  2015 Paul Norman <penorman@mac.com>
+  2015 Moritz Klammler <moritz@klammler.eu>
+  2016, 2018 Krzesimir Nowak <qdlacz@gmail.com>
+  2019 Enji Cooper <yaneurabeya@gmail.com>
+License: FSFAP
+
+License: GPL-2+
+ This package is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ .
+ This package is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <https://www.gnu.org/licenses/>
+ .
+ On Debian systems, the complete text of the GNU General
+ Public License version 2 can be found in "/usr/share/common-licenses/GPL-2".
+
+License: BSD-3-Clause
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions
+ are met:
+ .
+ 1. Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+ .
+ 2. Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+ .
+ 3. Neither the name of the Institute nor the names of its contributors
+    may be used to endorse or promote products derived from this software
+    without specific prior written permission.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND
+ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE
+ FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ SUCH DAMAGE.
+
+License: FSFAP
+ Copying and distribution of this file, with or without modification, are
+ permitted in any medium without royalty provided the copyright notice
+ and this notice are preserved. This file is offered as-is, without any
+ warranty.

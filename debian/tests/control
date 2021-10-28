@@ -1,0 +1,3 @@
+Tests: upstream-test-suite
+Depends: @builddeps@, ugrep
+Restrictions: rw-build-tree, allow-stderr

@@ -1,0 +1,2 @@
+#These README.md files describe the content of the files on those directories
+ugrep: package-contains-documentation-outside-usr-share-doc usr/share/ugrep/patterns*/README.md

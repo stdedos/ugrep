@@ -1,0 +1,4 @@
+version=4
+opts=dversionmangle=s/\+(debian|dfsg|ds|deb)(\.?\d+)?$//,\
+filenamemangle=s/.+\/v?(\d\S+)\.tar\.gz/ugrep-$1\.tar\.gz/ \
+  https://github.com/Genivia/ugrep/tags .*/v?(\d\S+)\.tar\.gz

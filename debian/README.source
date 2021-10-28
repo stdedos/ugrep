@@ -1,0 +1,2 @@
+Both bin/win32/ugrep.exe and bin/win64/ugrep.exe have been removed from the
+source package.
