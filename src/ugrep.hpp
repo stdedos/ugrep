@@ -30,7 +30,7 @@
 @file      ugrep.hpp
 @brief     a pattern search utility written in C++11
 @author    Robert van Engelen - engelen@genivia.com
-@copyright (c) 2019-2022, Robert van Engelen, Genivia Inc. All rights reserved.
+@copyright (c) 2019-2023, Robert van Engelen, Genivia Inc. All rights reserved.
 @copyright (c) BSD-3 License - see LICENSE.txt
 */
 
@@ -38,7 +38,7 @@
 #define UGREP_HPP
 
 // ugrep version
-#define UGREP_VERSION "3.8.0"
+#define UGREP_VERSION "3.12.0"
 
 // disable mmap because mmap is almost always slower than the file reading speed improvements since 3.0.0
 #define WITH_NO_MMAP
@@ -348,7 +348,7 @@ inline const char *utf8skipn(const char *s, size_t n, size_t k)
 // the default -Q UI view command when --view is used and PAGER or EDITOR are not set
 #ifndef DEFAULT_VIEW_COMMAND
 # ifdef OS_WIN
-#  define DEFAULT_VIEW_COMMAND "ugrep"
+#  define DEFAULT_VIEW_COMMAND "more"
 # else
 #  define DEFAULT_VIEW_COMMAND "less"
 # endif
@@ -417,6 +417,9 @@ inline const char *utf8skipn(const char *s, size_t n, size_t k)
 // undefined size_t value
 #define UNDEFINED_SIZE static_cast<size_t>(~0UL)
 
+// unique address to identify standard input path
+extern const char *LABEL_STANDARD_INPUT;
+
 // the CNF of Boolean search queries and patterns
 extern CNF bcnf;
 
@@ -435,6 +438,9 @@ extern FILE *source;
 
 // redirectable output destination is standard output by default or a pipe
 extern FILE *output;
+
+// full home directory path
+extern const char *home_dir;
 
 // ANSI SGR substrings extracted from GREP_COLORS and --colors
 #define COLORLEN 32
@@ -483,6 +489,9 @@ extern const Type type_table[];
 
 // check TTY availability and set colors
 extern void terminal();
+
+// set or update hyperlink with host and current working directory, e.g. when changed
+extern void set_terminal_hyperlink();
 
 // perform a ugrep search given the specified command line flags, patterns, and files
 extern void ugrep();

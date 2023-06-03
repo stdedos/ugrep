@@ -2138,8 +2138,12 @@ std::string convert(const char *pattern, const char *signature, convert_flag_typ
           {
             regex.append(par).append(&pattern[loc], pos - loc).push_back(')');
             loc = pos;
+            --pos;
           }
-          --pos;
+          else if (pos > loc)
+          {
+            --pos;
+          }
         }
         anc = false;
         beg = false;

@@ -34,6 +34,10 @@ configuration file located in the working directory or home directory, see
 CONFIGURATION.  \fBug\fR is equivalent to \fBugrep --config\fR and sorts files
 by name by default.
 .PP
+The \fBugrep+\fR and \fBug+\fR commands are the same as the \fBugrep\fR and
+\fBug\fR commands, but also use filters to search pdfs, documents, e-books,
+and image metadata, when the corresponding filter tools are installed.
+.PP
 \fBugrep\fR accepts input of various encoding formats and normalizes the output
 to UTF-8.  When a UTF byte order mark is present in the input, the input is
 automatically normalized; otherwise, \fBugrep\fR assumes the input is ASCII,
@@ -41,12 +45,12 @@ UTF-8, or raw binary.  An input encoding format may be specified with option
 \fB--encoding\fR.
 .PP
 If no \fIFILE\fR arguments are specified and standard input is read from a
-terminal, recursive searches are performed as if \fB-R\fR is specified.  To
+terminal, recursive searches are performed as if \fB-r\fR is specified.  To
 force reading from standard input, specify `-' as a \fIFILE\fR argument.
 .PP
 Directories specified as \fIFILE\fR arguments are searched without recursing
-into subdirectories, unless \fB-R\fR, \fB-r\fR, or \fB-2\fR...\fB-9\fR is
-specified to search subdirectories.
+deeper into subdirectories, unless \fB-R\fR, \fB-r\fR, or \fB-2\fR...\fB-9\fR
+is specified to search subdirectories.
 .PP
 Hidden files and directories are ignored in recursive searches.  Option
 \fB-.\fR (\fB--hidden\fR) includes hidden files and directories in recursive
@@ -186,7 +190,7 @@ When used at the end of a glob, matches directories only.
 Matches zero or more directories.
 .IP \fB/**\fR
 When used at the end of a glob, matches everything after the /.
-.IP \fB\\\\?\fR
+.IP \fB\e?\fR
 Matches a ? or any other character specified after the backslash.
 .PP
 \fBGlob Matching Examples\fR
@@ -216,7 +220,7 @@ Matches a, x/a, x/y/a,       but not b, x/b.
 Matches a/b, a/x/b, a/x/y/b, but not x/a/b, a/b/x
 .IP \fBa/**\fR
 Matches a/x, a/y, a/x/y,     but not a, b/x
-.IP \fBa\\\\?b\fR
+.IP \fBa\e?b\fR
 Matches a?b,                 but not a, b, ab, axb, a/b
 .PP
 Note that exclude glob patterns take priority over include glob patterns when
@@ -337,8 +341,10 @@ if not the first match: \fIARG\fR and separator, see also \fB%[\fR\fISEP\fR\fB]$
 the separator, see also \fB%[\fR\fIARG\fR\fB]S\fR and \fB%[\fR\fISEP\fR\fB]$.
 .IP \fB%~\fR
 a newline character.
+.IP \fB%M\fR
+the number of matching lines
 .IP \fB%m\fR
-the number of matches or matched files.
+the number of matches
 .IP \fB%O\fR
 the matching line is output as a raw string of bytes.
 .IP \fB%o\fR

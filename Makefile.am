@@ -11,24 +11,27 @@ all-local:	cp2bin
 
 .PHONY:		cp2bin
 
-# to copy the ugrep binary to the local ugrep/bin/ugrep and link ugrep/bin/ug
+# to copy the ugrep binary to the local ugrep/bin/ugrep and ugrep/bin/ug
 cp2bin:		$(top_builddir)/src/ugrep$(EXEEXT)
+		rm -f $(top_builddir)/bin/ugrep$(EXEEXT)
 		mkdir -p $(top_builddir)/bin; \
 		  cp -f $< $(top_builddir)/bin/ugrep$(EXEEXT); \
 		  cd $(top_builddir)/bin; \
 		  rm -f ug$(EXEEXT); \
-		  $(LN_S) ugrep$(EXEEXT) ug$(EXEEXT)
+		  cp -f ugrep$(EXEEXT) ug$(EXEEXT)
+		@./add-filters.sh
 		@echo
 		@echo "OK"
 		@echo
 
 install-exec-hook:
+		cp -f $(top_builddir)/bin/ugrep+ $(top_builddir)/bin/ug+ $(DESTDIR)$(bindir)
 		rm -f $(DESTDIR)$(bindir)/ug$(EXEEXT)
-		cd $(DESTDIR)$(bindir) && $(LN_S) ugrep$(EXEEXT) ug$(EXEEXT)
+		cd $(DESTDIR)$(bindir) && cp -f ugrep$(EXEEXT) ug$(EXEEXT)
 
 install-data-hook:
 		mkdir -p $(DESTDIR)$(datadir)/ugrep && \
-		  cp -rf patterns $(DESTDIR)$(datadir)/ugrep/
+		  cp -rf $(top_srcdir)/patterns $(DESTDIR)$(datadir)/ugrep/
 		cd $(DESTDIR)$(mandir)/man1; \
 		  rm -f ug.1; \
 		  $(LN_S) ugrep.1 ug.1
@@ -44,20 +47,29 @@ install-data-hook:
 		 echo "| located in the working directory or home directory.  |"; \
 		 echo "| Run 'ug --save-config' to create a .ugrep file.      |"; \
 		 echo "|                                                      |"; \
+		 echo "| The ugrep+ and ug+ commands are the same as the      |"; \
+		 echo "| ugrep and ug commands, but also use filters to       |"; \
+		 echo "| search PDFs, documents, e-books, image metadata,     |"; \
+		 echo "| when these filter tools are installed:               |"; \
+		 echo "|                                                      |"; \
+		 echo "|   pdftotext    https://pypi.org/project/pdftotext    |"; \
+		 echo "|   antiword     https://github.com/rsdoiel/antiword   |"; \
+		 echo "|   pandoc       https://pandoc.org                    |"; \
+		 echo "|   exiftool     https://exiftool.sourceforge.net      |"; \
+		 echo "|                                                      |"; \
 		 echo "| Aliases to consider:                                 |"; \
 		 echo "|   alias uq     = 'ug -Q'                             |"; \
-		 echo "|   alias ux     = 'ug -U --hexdump'                   |"; \
 		 echo "|   alias uz     = 'ug -z'                             |"; \
 		 echo "|   alias ugit   = 'ug --ignore-files'                 |"; \
-		 echo "|   alias grep   = 'ugrep -G'                          |"; \
-		 echo "|   alias egrep  = 'ugrep -E'                          |"; \
-		 echo "|   alias fgrep  = 'ugrep -F'                          |"; \
-		 echo "|   alias pgrep  = 'ugrep -P'                          |"; \
-		 echo "|   alias xgrep  = 'ugrep -U --hexdump'                |"; \
-		 echo "|   alias zgrep  = 'ugrep -zG'                         |"; \
-		 echo "|   alias zegrep = 'ugrep -zE'                         |"; \
-		 echo "|   alias zfgrep = 'ugrep -zF'                         |"; \
-		 echo "|   alias zpgrep = 'ugrep -zP'                         |"; \
+		 echo "|   alias grep   = 'ug -G'                             |"; \
+		 echo "|   alias egrep  = 'ug -E'                             |"; \
+		 echo "|   alias fgrep  = 'ug -F'                             |"; \
+		 echo "|   alias pgrep  = 'ug -P'                             |"; \
+		 echo "|   alias zgrep  = 'ug -zG'                            |"; \
+		 echo "|   alias zegrep = 'ug -zE'                            |"; \
+		 echo "|   alias zfgrep = 'ug -zF'                            |"; \
+		 echo "|   alias zpgrep = 'ug -zP'                            |"; \
+		 echo "|   alias ux     = 'ugrep -U --hexdump'                |"; \
 		 echo "|   alias zxgrep = 'ugrep -zU --hexdump'               |"; \
 		 echo "|   alias xdump  = 'ugrep -X \"\"'                       |"; \
 		 echo "|                                                      |"; \
@@ -67,7 +79,8 @@ install-data-hook:
 		 echo "|______________________________________________________|";
 
 uninstall-hook:
-		rm -f $(DESTDIR)$(bindir)/ug$(EXEEXT)
+		rm -f $(DESTDIR)$(bindir)/ug$(EXEEXT) $(DESTDIR)$(bindir)/ugrep$(EXEEXT)
+		rm -f $(DESTDIR)$(bindir)/ug+ $(DESTDIR)$(bindir)/ugrep+
 		rm -rf $(DESTDIR)$(datadir)/ugrep
 
 .PHONY:		test
