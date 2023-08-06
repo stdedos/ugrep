@@ -191,18 +191,15 @@ After this, you may want to test ugrep and install it (optional):
 # define DIRENT_TYPE_REG     1
 #endif
 
+// pointer to the --index pattern DFA with HFA constructed before threads start
+const reflex::Pattern *index_pattern = NULL; // concurrent access is thread safe
+
 // the -M MAGIC pattern DFA constructed before threads start, read-only afterwards
 reflex::Pattern magic_pattern; // concurrent access is thread safe
 reflex::Matcher magic_matcher; // concurrent access is not thread safe
 
 // the --filter-magic-label pattern DFA
 reflex::Pattern filter_magic_pattern; // concurrent access is thread safe
-
-// TTY detected
-bool tty_term = false;
-
-// color term detected
-bool color_term = false;
 
 #ifdef OS_WIN
 
@@ -212,8 +209,8 @@ BOOL WINAPI sigint(DWORD signal)
   if (signal == CTRL_C_EVENT || signal == CTRL_BREAK_EVENT)
   {
     // be nice, reset colors on interrupt when sending output to a color TTY
-    if (color_term)
-      color_term = write(1, "\033[m", 3) > 0; // appease -Wunused-result
+    if (flag_color_term)
+      flag_color_term = write(1, "\033[m", 3) > 0; // appease -Wunused-result
   }
 
   // return FALSE to invoke the next handler (when applicable) or just exit
@@ -229,8 +226,8 @@ static void sigint(int sig)
   signal(sig, SIG_DFL);
 
   // be nice, reset colors on interrupt when sending output to a color TTY
-  if (color_term)
-    color_term = write(1, "\033[m", 3) > 0; // appease -Wunused-result
+  if (flag_color_term)
+    flag_color_term = write(1, "\033[m", 3) > 0; // appease -Wunused-result
 
   // signal again
   kill(getpid(), sig);
@@ -315,16 +312,19 @@ bool flag_any_line                 = false;
 bool flag_basic_regexp             = false;
 bool flag_best_match               = false;
 bool flag_bool                     = false;
+bool flag_color_term               = false;
 bool flag_confirm                  = DEFAULT_CONFIRM;
 bool flag_count                    = false;
 bool flag_cpp                      = false;
 bool flag_csv                      = false;
 bool flag_decompress               = false;
 bool flag_dereference              = false;
+bool flag_dereference_files        = false;
 bool flag_files                    = false;
 bool flag_files_with_matches       = false;
 bool flag_files_without_match      = false;
 bool flag_fixed_strings            = false;
+bool flag_glob_ignore_case         = false;
 bool flag_hex                      = false;
 bool flag_hex_star                 = false;
 bool flag_hex_cbr                  = true;
@@ -349,6 +349,7 @@ bool flag_pretty                   = DEFAULT_PRETTY;
 bool flag_quiet                    = false;
 bool flag_sort_rev                 = false;
 bool flag_stdin                    = false;
+bool flag_tty_term                 = false;
 bool flag_usage_warnings           = false;
 bool flag_word_regexp              = false;
 bool flag_xml                      = false;
@@ -376,10 +377,14 @@ Action flag_devices_action         = Action::UNSP;
 Action flag_directories_action     = Action::UNSP;
 size_t flag_after_context          = 0;
 size_t flag_before_context         = 0;
+size_t flag_exclude_iglob_size     = 0;
+size_t flag_exclude_iglob_dir_size = 0;
 size_t flag_fuzzy                  = 0;
 size_t flag_hex_after              = 0;
 size_t flag_hex_before             = 0;
 size_t flag_hex_columns            = 16;
+size_t flag_include_iglob_size     = 0;
+size_t flag_include_iglob_dir_size = 0;
 size_t flag_jobs                   = 0;
 size_t flag_max_count              = 0;
 size_t flag_max_depth              = 0;
@@ -412,6 +417,7 @@ const char *flag_format_open       = NULL;
 const char *flag_group_separator   = "--";
 const char *flag_hexdump           = NULL;
 const char *flag_hyperlink         = NULL;
+const char *flag_index             = NULL;
 const char *flag_label             = LABEL_STANDARD_INPUT;
 const char *flag_pager             = DEFAULT_PAGER;
 const char *flag_replace           = NULL;
@@ -436,6 +442,7 @@ std::vector<std::string> flag_file_extension;
 std::vector<std::string> flag_file_magic;
 std::vector<std::string> flag_filter_magic_label;
 std::vector<std::string> flag_glob;
+std::vector<std::string> flag_iglob;
 std::vector<std::string> flag_ignore_files;
 std::vector<std::string> flag_include;
 std::vector<std::string> flag_include_dir;
@@ -492,6 +499,8 @@ void cannot_decompress(const char *pathname, const char *message);
 // open a file where - means stdin/stdout and an initial ~ expands to home directory
 int fopen_smart(FILE **file, const char *filename, const char *mode)
 {
+  *file = NULL;
+
   if (filename == NULL || *filename == '\0')
     return errno = ENOENT;
 
@@ -513,14 +522,13 @@ inline bool getline(reflex::BufferedInput& input, std::string& line)
   int ch;
 
   line.erase();
-  while ((ch = input.get()) != EOF)
-  {
-    if (ch == '\n')
-      break;
+
+  while ((ch = input.get()) != EOF && ch != '\n')
     line.push_back(ch);
-  }
+
   if (!line.empty() && line.back() == '\r')
     line.pop_back();
+
   return ch == EOF && line.empty();
 }
 
@@ -589,7 +597,7 @@ inline bool getline(const char*& here, size_t& left, reflex::BufferedInput& buff
   return ch == EOF && line.empty();
 }
 
-// return true if s[0..n-1] contains a \0 (NUL) or is non-displayable invalid UTF-8, which depends on -U and -W
+// return true if s[0..n-1] contains a \0 (NUL) or a non-displayable invalid UTF-8 sequence, which depends on -U and -W
 inline bool is_binary(const char *s, size_t n)
 {
   // file is binary if it contains a \0 (NUL)
@@ -1381,7 +1389,7 @@ struct Zthread {
           int header_len = is_odc ? 76 : 110;
 
           char tmp[16];
-          char *rest;
+          char *rest = tmp;
 
           // get the namesize
           size_t namesize;
@@ -1399,7 +1407,7 @@ struct Zthread {
           }
 
           // if not a valid mode value, then something is wrong
-          if (rest == NULL || *rest != '\0')
+          if (*rest != '\0')
           {
             // data was read, stop reading more
             if (in_progress)
@@ -1429,7 +1437,7 @@ struct Zthread {
           }
 
           // if not a valid mode value, then something is wrong
-          if (rest == NULL || *rest != '\0')
+          if (*rest != '\0')
           {
             // data was read, stop reading more
             if (in_progress)
@@ -1455,7 +1463,7 @@ struct Zthread {
           }
 
           // if not a valid mode value, then something is wrong
-          if (rest == NULL || *rest != '\0')
+          if (*rest != '\0')
           {
             // data was read, stop reading more
             if (in_progress)
@@ -1672,16 +1680,22 @@ struct Zthread {
       {
         // exclude files whose basename matches any one of the --exclude globs
         for (const auto& glob : flag_all_exclude)
-          if (!(is_selected = !glob_match(path, basename, glob.c_str())))
+        {
+          bool ignore_case = &glob < &flag_all_exclude.front() + flag_exclude_iglob_size;
+          if (!(is_selected = !glob_match(path, basename, glob.c_str(), ignore_case)))
             break;
+        }
 
         // include only if not excluded
         if (is_selected)
         {
           // include files whose basename matches any one of the --include globs
           for (const auto& glob : flag_all_include)
-            if ((is_selected = glob_match(path, basename, glob.c_str())))
+          {
+            bool ignore_case = &glob < &flag_all_include.front() + flag_include_iglob_size;
+            if ((is_selected = glob_match(path, basename, glob.c_str(), ignore_case)))
               break;
+          }
         }
       }
 
@@ -1769,6 +1783,20 @@ struct Grep {
       return static_cast<uint64_t>(flag_sort_key == Sort::SIZE ? buf.st_size : flag_sort_key == Sort::USED ? buf.st_atime : flag_sort_key == Sort::CHANGED ? buf.st_mtime : flag_sort_key == Sort::CREATED ? buf.st_ctime : 0);
 #endif
     }
+
+    // get modification time from stat buf
+    static uint64_t modified_time(const struct stat& buf)
+    {
+#if defined(HAVE_STAT_ST_ATIM) && defined(HAVE_STAT_ST_MTIM) && defined(HAVE_STAT_ST_CTIM)
+      // tv_sec may be 64 bit, but value is small enough to multiply by 1000000 to fit in 64 bits
+      return static_cast<uint64_t>(static_cast<uint64_t>(buf.st_mtim.tv_sec) * 1000000 + buf.st_mtim.tv_nsec / 1000);
+#elif defined(HAVE_STAT_ST_ATIMESPEC) && defined(HAVE_STAT_ST_MTIMESPEC) && defined(HAVE_STAT_ST_CTIMESPEC)
+      // tv_sec may be 64 bit, but value is small enough to multiply by 1000000 to fit in 64 bits
+      return static_cast<uint64_t>(static_cast<uint64_t>(buf.st_mtimespec.tv_sec) * 1000000 + buf.st_mtimespec.tv_nsec / 1000);
+#else
+      return static_cast<uint64_t>(buf.st_mtime);
+#endif
+    }
 #endif
 
     // compare two entries by pathname
@@ -1838,7 +1866,221 @@ struct Grep {
     size_t      slot;
   };
 
+#ifdef WITH_LOCK_FREE_JOB_QUEUE
+
+  // a lock-free job queue for one producer and one consumer with a bounded circular buffer
+  struct JobQueue {
+
+    JobQueue()
+      :
+        head(ring),
+        tail(ring),
+        todo(0)
+    { }
+
+    bool empty() const
+    {
+      return head.load() == tail.load();
+    }
+
+    // add a sentinel NONE job to the queue
+    void enqueue()
+    {
+      enqueue("", Entry::UNDEFINED_COST, Job::NONE);
+    }
+
+    // add a job to the queue
+    void enqueue(const char *pathname, uint16_t cost, size_t slot)
+    {
+      Job *job = tail.load();
+      Job *next = job + 1;
+      if (next == &ring[MAX_JOB_QUEUE_SIZE])
+        next = ring;
+
+      while (next == head.load())
+      {
+        // we must lock and wait until the buffer is not full
+        std::unique_lock<std::mutex> lock(queue_mutex);
+        queue_full.wait(lock);
+      }
+
+      job->pathname.assign(pathname);
+      job->cost = cost;
+      job->slot = slot;
+      tail.store(next);
+      ++todo;
+      queue_data.notify_one();
+    }
+
+    // try to add a job to the queue if the queue is not too large
+    bool try_enqueue(const char *pathname, uint16_t cost, size_t slot)
+    {
+      Job *job = tail.load();
+      Job *next = job + 1;
+      if (next == &ring[MAX_JOB_QUEUE_SIZE])
+        next = ring;
+
+      if (next == head.load())
+        return false;
+
+      job->pathname.assign(pathname);
+      job->cost = cost;
+      job->slot = slot;
+      tail.store(next);
+      ++todo;
+      queue_data.notify_one();
+
+      return true;
+    }
+
+    // pop a job
+    void dequeue(Job& job)
+    {
+      while (empty())
+      {
+        // we must lock and wait until the buffer is not empty
+        std::unique_lock<std::mutex> lock(queue_mutex);
+        queue_data.wait(lock);
+      }
+
+      Job *next = head.load() + 1;
+      if (next == &ring[MAX_JOB_QUEUE_SIZE])
+        next = ring;
+
+      job = *head.load();
+      head.store(next);
+      --todo;
+      queue_full.notify_one();
+    }
+
+    Job                     ring[MAX_JOB_QUEUE_SIZE];
+    std::atomic<Job*>       head;
+    std::atomic<Job*>       tail;
+    std::mutex              queue_mutex; // job queue mutex used when queue is empty or full
+    std::condition_variable queue_data;  // cv to control the job queue
+    std::condition_variable queue_full;  // cv to control the job queue
+    std::atomic_size_t      todo;        // number of jobs in the queue
+  };
+
+#else
+
+  // a job queue
+  struct JobQueue : public std::deque<Job> {
+
+    JobQueue()
+      :
+        todo(0)
+    { }
+
+    // add a sentinel NONE job to the queue
+    void enqueue()
+    {
+      std::unique_lock<std::mutex> lock(queue_mutex);
+
+      emplace_back();
+      ++todo;
+
+      queue_work.notify_one();
+    }
+
+    // add a job to the queue
+    void enqueue(const char *pathname, uint16_t cost, size_t slot)
+    {
+      std::unique_lock<std::mutex> lock(queue_mutex);
+
+      emplace_back(pathname, cost, slot);
+      ++todo;
+
+      queue_work.notify_one();
+    }
+
+    // try to add a job to the queue if the queue is not too large
+    bool try_enqueue(const char *pathname, uint16_t cost, size_t slot)
+    {
+      if (todo >= MAX_JOB_QUEUE_SIZE)
+        return false;
+
+      enqueue(pathname, cost, slot);
+
+      return true;
+    }
+
+    // pop a job
+    void dequeue(Job& job)
+    {
+      std::unique_lock<std::mutex> lock(queue_mutex);
+
+      while (empty())
+        queue_work.wait(lock);
+
+      job = front();
+      pop_front();
+      --todo;
+
+      // if we popped a Job::NONE sentinel but the queue has some jobs, then move the sentinel to the back of the queue
+      if (job.none() && !empty())
+      {
+        emplace_back();
+        job = front();
+        pop_front();
+      }
+    }
+
+    // steal a job from this worker, if at least --min-steal jobs to do, returns true if successful
+    bool steal_job(Job& job)
+    {
+      std::unique_lock<std::mutex> lock(queue_mutex);
+
+      if (empty())
+        return false;
+
+      job = front();
+
+      // we cannot steal a Job::NONE sentinel
+      if (job.none())
+        return false;
+
+      pop_front();
+      --todo;
+
+      return true;
+    }
+
+    // move a stolen job to this worker, maintaining job slot order
+    void move_job(Job& job)
+    {
+      std::unique_lock<std::mutex> lock(queue_mutex);
+
+      bool inserted = false;
+
+      // insert job in the queue to maintain job order
+      for (auto j = begin(); j != end(); ++j)
+      {
+        if (j->slot > job.slot)
+        {
+          insert(j, std::move(job));
+          inserted = true;
+          break;
+        }
+      }
+
+      if (!inserted)
+        emplace_back(std::move(job));
+
+      ++todo;
+
+      queue_work.notify_one();
+    }
+
+    std::mutex              queue_mutex; // job queue mutex
+    std::condition_variable queue_work;  // cv to control the job queue
+    std::atomic_size_t      todo;        // number of jobs in the queue, atomic for job stealing
+  };
+
+#endif
+
 #ifndef OS_WIN
+
   // extend the reflex::Input::Handler to handle stdin from a TTY or from a slow pipe
   struct StdInHandler : public reflex::Input::Handler {
 
@@ -1852,7 +2094,7 @@ struct Grep {
     int operator()(FILE *file)
     {
       grep->out.flush();
-      
+
       while (true)
       {
         struct timeval tv;
@@ -1879,6 +2121,7 @@ struct Grep {
       return 1;
     }
   };
+
 #endif
 
   // extend the reflex::AbstractMatcher::Handler with a grep object reference and references to some of the grep::search locals
@@ -3509,7 +3752,7 @@ struct Grep {
 
 struct GrepWorker;
 
-// master submits jobs to workers and implements operations to support lock-free job stealing
+// master submits jobs to workers and implements operations to support job stealing
 struct GrepMaster : public Grep {
 
   GrepMaster(FILE *file, reflex::AbstractMatcher *matcher, Matchers *matchers)
@@ -3581,7 +3824,7 @@ struct GrepMaster : public Grep {
   // submit a job with a pathname to a worker, workers are visited round-robin
   void submit(const char *pathname, uint16_t cost);
 
-  // lock-free job stealing on behalf of a worker from a co-worker with at least --min-steal jobs still to do
+  // job stealing on behalf of a worker from a co-worker with at least --min-steal jobs still to do
   bool steal(GrepWorker *worker);
 
   std::list<GrepWorker>           workers; // workers running threads
@@ -3596,8 +3839,7 @@ struct GrepWorker : public Grep {
   GrepWorker(FILE *file, GrepMaster *master)
     :
       Grep(file, master->matcher_clone(), master->matchers_clone()),
-      master(master),
-      todo(0)
+      master(master)
   {
     // all workers synchronize their output on the master's sync object
     out.sync_on(&master->sync);
@@ -3622,101 +3864,25 @@ struct GrepWorker : public Grep {
   // submit Job::NONE sentinel to this worker
   void submit_job()
   {
-    while (todo >= MAX_JOB_QUEUE_SIZE && !out.eof && !out.cancelled())
-      std::this_thread::sleep_for(std::chrono::milliseconds(100)); // give the worker threads some slack
-
-    std::unique_lock<std::mutex> lock(queue_mutex);
-
-    jobs.emplace_back();
-    ++todo;
-
-    queue_work.notify_one();
+    jobs.enqueue();
   }
 
   // submit a job to this worker
   void submit_job(const char *pathname, uint16_t cost, size_t slot)
   {
-    while (todo >= MAX_JOB_QUEUE_SIZE && !out.eof && !out.cancelled())
-      std::this_thread::sleep_for(std::chrono::milliseconds(100)); // give the worker threads some slack
-
-    std::unique_lock<std::mutex> lock(queue_mutex);
-
-    jobs.emplace_back(pathname, cost, slot);
-    ++todo;
-
-    queue_work.notify_one();
+    jobs.enqueue(pathname, cost, slot);
   }
 
-  // move a stolen job to this worker, maintaining job slot order
-  void move_job(Job& job)
+  // submit a job to this worker
+  bool try_submit_job(const char *pathname, uint16_t cost, size_t slot)
   {
-    std::unique_lock<std::mutex> lock(queue_mutex);
-
-    bool inserted = false;
-
-    // insert job in the queue to maintain job order
-    for (auto j = jobs.begin(); j != jobs.end(); ++j)
-    {
-      if (j->slot > job.slot)
-      {
-        jobs.insert(j, std::move(job));
-        inserted = true;
-        break;
-      }
-    }
-
-    if (!inserted)
-      jobs.emplace_back(std::move(job));
-
-    ++todo;
-
-    queue_work.notify_one();
+    return jobs.try_enqueue(pathname, cost, slot);
   }
 
   // receive a job for this worker, wait until one arrives
   void next_job(Job& job)
   {
-    std::unique_lock<std::mutex> lock(queue_mutex);
-
-    while (jobs.empty())
-      queue_work.wait(lock);
-
-    job = jobs.front();
-
-    jobs.pop_front();
-    --todo;
-
-    // if we popped a Job::NONE sentinel but the queue has some jobs, then move the sentinel to the back of the queue
-    if (job.none() && !jobs.empty())
-    {
-      jobs.emplace_back();
-      job = jobs.front();
-      jobs.pop_front();
-    }
-  }
-
-  // steal a job from this worker, if at least --min-steal jobs to do, returns true if successful
-  bool steal_job(Job& job)
-  {
-    // not enough jobs in the queue to steal from
-    if (todo < flag_min_steal)
-      return false;
-
-    std::unique_lock<std::mutex> lock(queue_mutex);
-
-    if (jobs.empty())
-      return false;
-
-    job = jobs.front();
-
-    // we cannot steal a Job::NONE sentinel
-    if (job.none())
-      return false;
-
-    jobs.pop_front();
-    --todo;
-
-    return true;
+    jobs.dequeue(job);
   }
 
   // submit Job::NONE sentinel to stop this worker
@@ -3727,11 +3893,7 @@ struct GrepWorker : public Grep {
 
   std::thread             thread;      // thread of this worker, spawns GrepWorker::execute()
   GrepMaster             *master;      // the master of this worker
-  std::mutex              queue_mutex; // job queue mutex
-  std::condition_variable queue_work;  // cv to control the job queue
-  std::deque<Job>         jobs;        // queue of pending jobs submitted to this worker
-  std::atomic_size_t      todo;        // number of jobs in the queue, atomic for lock-free job stealing
-
+  JobQueue                jobs;        // queue of pending jobs submitted to this worker
 };
 
 // start worker threads
@@ -3771,7 +3933,34 @@ void GrepMaster::stop_workers()
 // submit a job with a pathname to a worker, workers are visited round-robin
 void GrepMaster::submit(const char *pathname, uint16_t cost)
 {
-  iworker->submit_job(pathname, cost, sync.next++);
+  size_t min_todo = iworker->jobs.todo;
+
+  // if this worker has some jobs that can't be stolen, then find a worker with the minimum number of jobs
+  if (min_todo > flag_min_steal)
+  {
+    auto min_worker = iworker;
+
+    for (size_t num = 0; num < threads; ++num)
+    {
+      if (iworker->jobs.todo < min_todo)
+      {
+        min_todo = iworker->jobs.todo;
+        min_worker = iworker;
+      }
+
+      ++iworker;
+      if (iworker == workers.end())
+        iworker = workers.begin();
+    }
+
+    iworker = min_worker;
+  }
+
+  // give the worker threads some slack
+  while (!iworker->try_submit_job(pathname, cost, sync.next) && !out.eof && !out.cancelled())
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  ++sync.next;
 
   // around we go
   ++iworker;
@@ -3779,47 +3968,51 @@ void GrepMaster::submit(const char *pathname, uint16_t cost)
     iworker = workers.begin();
 }
 
-// lock-free job stealing on behalf of a worker from a co-worker with at least --min-steal jobs still to do
+#ifndef WITH_LOCK_FREE_JOB_QUEUE
+
+// job stealing on behalf of a worker from a co-worker with at least --min-steal jobs still to do
 bool GrepMaster::steal(GrepWorker *worker)
 {
-  // pick a random co-worker using thread-safe std::chrono::high_resolution_clock as a simple RNG
-  size_t n = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count() % threads;
-  auto iworker = workers.begin();
-
-  while (n > 0)
-  {
-    ++iworker;
-    --n;
-  }
-
-  // try to steal a job from the random co-worker or the next co-workers
+  // try to steal a job from a co-worker with the most jobs
+  auto coworker = workers.begin();
+  auto max_worker = coworker;
+  size_t max_todo = 0;
+  
   for (size_t i = 0; i < threads; ++i)
   {
-    // around we go
-    if (iworker == workers.end())
-      iworker = workers.begin();
-
-    // if co-worker isn't this worker (no self-stealing!)
-    if (&*iworker != worker)
+    if (&*coworker != worker && coworker->jobs.todo > max_todo)
     {
-      Job job;
-
-      // if co-worker has at least --min-steal jobs then steal one for this worker
-      if (iworker->steal_job(job))
-      {
-        worker->move_job(job);
-
-        return true;
-      }
+      max_todo = coworker->jobs.todo;
+      max_worker = coworker;
     }
 
-    // try next co-worker
-    ++iworker;
+    // around we go
+    ++coworker;
+    if (coworker == workers.end())
+      coworker = workers.begin();
+  }
+
+  // not enough jobs in the co-worker's queue to steal from
+  if (max_todo < flag_min_steal)
+    return false;
+
+  coworker = max_worker;
+
+  Job job;
+
+  // steal a job for this worker
+  if (coworker->jobs.steal_job(job))
+  {
+    worker->jobs.move_job(job);
+
+    return true;
   }
 
   // couldn't steal any job
   return false;
 }
+
+#endif
 
 // execute worker thread
 void GrepWorker::execute()
@@ -3844,9 +4037,11 @@ void GrepWorker::execute()
     // end output in ORDERED mode (--sort) for this job slot
     out.end();
 
+#ifndef WITH_LOCK_FREE_JOB_QUEUE
     // if only one job is left to do or nothing to do, then try stealing another job from a co-worker
-    if (todo <= 1)
+    if (jobs.todo <= 1)
       master->steal(this);
+#endif
   }
 }
 
@@ -4201,7 +4396,7 @@ static void save_config()
   if (strcmp(flag_save_config, ".ugrep") == 0)
     fprintf(file, "# default .ugrep configuration file used by ug and ugrep --config.\n");
   else if (strcmp(flag_save_config, "-") == 0)
-    fprintf(file, "# ugrep configuration.\n");
+    fprintf(file, "# ugrep configuration\n");
   else
     fprintf(file, "# configuration used with ugrep --config=%s or ---%s.\n", flag_save_config, flag_save_config);
 
@@ -4210,7 +4405,7 @@ static void save_config()
 # A long option is defined per line with an optional `=' and its argument,\n\
 # when applicable. Empty lines and lines starting with a `#' are ignored.\n\
 #\n\
-# Try `ugrep --help' or `ugrep --help WHAT' for more information.\n\n");
+# Try `ug --help' or `ug --help WHAT' for more information.\n\n");
 
   fprintf(file, "### TERMINAL DISPLAY ###\n\n");
 
@@ -4228,14 +4423,14 @@ static void save_config()
 # Parameter `hl' enables file name hyperlinks (same as --hyperlink).  Parameter\n\
 # `rv' reverses the `sl=' and `cx=' parameters when option -v is used.\n\n");
 
-  fprintf(file, "# Enable/disable color\n%s\n\n", flag_color != NULL ? "color" : "no-color");
+  fprintf(file, "# Enable color output to a terminal\n%s\n\n", flag_color != NULL ? "color" : "no-color");
   if (flag_hyperlink != NULL && *flag_hyperlink == '\0')
-    fprintf(file, "# Enable/disable hyperlinks in color output\nhyperlink\n\n");
+    fprintf(file, "# Enable hyperlinks in color output\nhyperlink\n\n");
   else if (flag_hyperlink != NULL)
-    fprintf(file, "# Enable/disable hyperlinks in color output\nhyperlink=%s\n\n", flag_hyperlink);
-  fprintf(file, "# Enable/disable query UI confirmation prompts, default: confirm\n%s\n\n", flag_confirm ? "confirm" : "no-confirm");
+    fprintf(file, "# Enable hyperlinks in color output\nhyperlink=%s\n\n", flag_hyperlink);
+  fprintf(file, "# Enable query UI confirmation prompts, default: confirm\n%s\n\n", flag_confirm ? "confirm" : "no-confirm");
 
-  fprintf(file, "# Enable/disable query UI file viewing command with CTRL-Y or F2, default: view\n");
+  fprintf(file, "# Enable query UI file viewing command with CTRL-Y or F2, default: view\n");
   if (flag_view != NULL && *flag_view == '\0')
     fprintf(file, "view\n\n");
   else if (flag_view != NULL)
@@ -4243,34 +4438,33 @@ static void save_config()
   else
     fprintf(file, "no-view\n\n");
 
-  fprintf(file, "# Enable/disable or specify a pager for terminal output, default: no-pager\n");
+  fprintf(file, "# Enable a pager for terminal output, default: no-pager\n");
   if (flag_pager != NULL)
     fprintf(file, "pager=%s\n\n", flag_pager);
   else
     fprintf(file, "no-pager\n\n");
 
-  fprintf(file, "# Enable/disable pretty output to the terminal, default: no-pretty\n%s\n\n", flag_pretty ? "pretty" : "no-pretty");
+  fprintf(file, "# Enable pretty output to the terminal, default: pretty\n%s\n\n", flag_pretty ? "pretty" : "no-pretty");
 
-  if (flag_tree.is_defined() && flag_tree != flag_pretty)
-    fprintf(file, "# Enable/disable directory tree output for --files-with-matches and --count\n%s\n\n", flag_tree ? "tree" : "no-tree");
+  fprintf(file, "# Enable directory tree output to a terminal for --files-with-matches and --count\n%s\n\n", flag_tree ? "tree" : "no-tree");
 
   if (flag_heading.is_defined() && flag_heading != flag_pretty)
-    fprintf(file, "# Enable/disable headings\n%s\n\n", flag_heading.is_undefined() ? "# no-heading" : flag_heading ? "heading" : "no-heading");
+    fprintf(file, "# Enable headings\n%s\n\n", flag_heading ? "heading" : "no-heading");
 
   if (flag_break.is_defined() && flag_break != flag_pretty)
-    fprintf(file, "# Enable/disable break after matching files\n%s\n\n", flag_break ? "break" : "no-break");
+    fprintf(file, "# Enable break after matching files\n%s\n\n", flag_break ? "break" : "no-break");
+
+  if (flag_initial_tab.is_defined() && flag_initial_tab != flag_pretty)
+    fprintf(file, "# Enable initial tab\n%s\n\n", flag_initial_tab ? "initial-tab" : "no-initial-tab");
 
   if (flag_line_number.is_defined() && flag_line_number != flag_pretty)
-    fprintf(file, "# Enable/disable line numbers\n%s\n\n", flag_line_number ? "line-number" : "no-line-number");
+    fprintf(file, "# Enable line numbers\n%s\n\n", flag_line_number ? "line-number" : "no-line-number");
 
   if (flag_column_number.is_defined())
-    fprintf(file, "# Enable/disable column numbers\n%s\n\n", flag_column_number ? "column-number" : "no-column-number");
+    fprintf(file, "# Enable column numbers\n%s\n\n", flag_column_number ? "column-number" : "no-column-number");
 
   if (flag_byte_offset.is_defined())
-    fprintf(file, "# Enable/disable byte offsets\n%s\n\n", flag_byte_offset ? "byte-offset" : "no-byte-offset");
-
-  if (flag_initial_tab.is_defined() && flag_line_number != flag_pretty)
-    fprintf(file, "# Enable/disable initial tab\n%s\n\n", flag_initial_tab ? "initial-tab" : "no-initial-tab");
+    fprintf(file, "# Enable byte offsets\n%s\n\n", flag_byte_offset ? "byte-offset" : "no-byte-offset");
 
   if (strcmp(flag_binary_files, "hex") == 0)
     fprintf(file, "# Hex output\nhex\n\n");
@@ -4303,29 +4497,32 @@ static void save_config()
 
   fprintf(file, "### SEARCH PATTERNS ###\n\n");
 
-  fprintf(file, "# Enable/disable case-insensitive search, default: no-ignore-case\n%s\n\n", flag_ignore_case.is_undefined() ? "# no-ignore-case" : flag_ignore_case ? "ignore-case" : "no-ignore-case");
-  fprintf(file, "# Enable/disable smart case, default: no-smart-case\n%s\n\n", flag_smart_case.is_undefined() ? "# no-smart-case" : flag_smart_case ? "smart-case" : "no-smart-case");
-  fprintf(file, "# Enable/disable empty pattern matches, default: no-empty\n%s\n\n", flag_empty.is_undefined() ? "# no-empty" : flag_empty ? "empty" : "no-empty");
+  fprintf(file, "# Enable case-insensitive search, default: no-ignore-case\n%s\n\n", flag_ignore_case.is_undefined() ? "# no-ignore-case" : flag_ignore_case ? "ignore-case" : "no-ignore-case");
+  fprintf(file, "# Enable smart case, default: no-smart-case\n%s\n\n", flag_smart_case.is_undefined() ? "# no-smart-case" : flag_smart_case ? "smart-case" : "no-smart-case");
+  fprintf(file, "# Enable empty pattern matches, default: no-empty\n%s\n\n", flag_empty.is_undefined() ? "# no-empty" : flag_empty ? "empty" : "no-empty");
 
   fprintf(file, "### SEARCH TARGETS ###\n\n");
 
-  fprintf(file, "# Enable/disable searching hidden files and directories, default: no-hidden\n%s\n\n", flag_hidden ? "hidden" : "no-hidden");
-  fprintf(file, "# Enable/disable binary files, default: no-ignore-binary\n%s\n\n", strcmp(flag_binary_files, "without-match") == 0 ? "ignore-binary" : "no-ignore-binary");
-  fprintf(file, "# Enable/disable decompression and archive search, default: no-decompress\n%s\n\n", flag_decompress ? "decompress" : "no-decompress");
-  fprintf(file, "# Maximum decompression and de-archiving nesting levels, default: 1\nzmax=%zu\n\n", flag_zmax);
+  fprintf(file, "# Enable case-insensitive glob matching, default: no-glob-ignore-case\n%s\n\n", flag_glob_ignore_case ? "glob-ignore-case" : "no-glob-ignore-case");
+  fprintf(file, "# Search hidden files and directories, default: no-hidden\n%s\n\n", flag_hidden ? "hidden" : "no-hidden");
+  fprintf(file, "# Ignore binary files, default: no-ignore-binary\n%s\n\n", strcmp(flag_binary_files, "without-match") == 0 ? "ignore-binary" : "no-ignore-binary");
+  fprintf(file, "# Enable decompression and archive search, default: no-decompress\n%s\n\n", flag_decompress ? "decompress" : "no-decompress");
+  fprintf(file, "# Maximum decompression and de-archiving nesting levels, default: zmax=1\nzmax=%zu\n\n", flag_zmax);
   if (flag_dereference)
     fprintf(file, "# Dereference symlinks, default: no-dereference\ndereference\n\n");
+  else if (flag_dereference_files)
+    fprintf(file, "# Dereference symlinks to files, not directories, default: no-dereference-files\ndereference-files\n\n");
   if (flag_devices != NULL)
     fprintf(file, "# Search devices, default: devices=skip\ndevices=%s\n\n", flag_devices);
   if (flag_max_depth > 0)
     fprintf(file, "# Recursively search directories up to %zu levels deep\nmax-depth=%zu\n\n", flag_max_depth, flag_max_depth);
   if (flag_ignore_files.empty())
   {
-    fprintf(file, "# Enable/disable ignore files, default: no-ignore-files\nno-ignore-files\n\n");
+    fprintf(file, "# Ignore files and directories specified in .gitignore, default: no-ignore-files\nno-ignore-files\n\n");
   }
   else
   {
-    fprintf(file, "# Enable/disable ignore files, default: no-ignore-files\n");
+    fprintf(file, "# Ignore files and directories specified in .gitignore, default: no-ignore-files\n");
     for (const auto& ignore : flag_ignore_files)
       fprintf(file, "ignore-files=%s\n", ignore.c_str());
     fprintf(file, "\n");
@@ -4347,11 +4544,11 @@ static void save_config()
   if (flag_separator != NULL)
     fprintf(file, "# Separator, default: none specified to output a `:', a `+', and a `|'\nseparator=%s\n\n", flag_separator);
 
-  fprintf(file, "# Enable/disable sorted output, default: no-sort\n");
+  fprintf(file, "# Sort the list of files and directories searched and matched, default: sort\n");
   if (flag_sort != NULL)
     fprintf(file, "sort=%s\n\n", flag_sort);
   else
-    fprintf(file, "# no-sort\n\n");
+    fprintf(file, "# sort\n\n");
 
   if (ferror(file))
     error("cannot save", flag_save_config);
@@ -4408,10 +4605,12 @@ void options(std::list<std::pair<CNF::PATTERN,const char*>>& pattern_args, int a
                   option_andnot(pattern_args, arg + 7);
                 else if (strcmp(arg, "any-line") == 0)
                   flag_any_line = true;
+                else if (strcmp(arg, "ascii") == 0)
+                  flag_binary = true;
                 else if (strcmp(arg, "after-context") == 0)
                   usage("missing argument for --", arg);
                 else
-                  usage("invalid option --", arg, "--after-context, --and, --andnot or --any-line");
+                  usage("invalid option --", arg, "--after-context, --and, --andnot, --any-line or --ascii");
                 break;
 
               case 'b':
@@ -4477,6 +4676,8 @@ void options(std::list<std::pair<CNF::PATTERN,const char*>>& pattern_args, int a
                   strtopos2(arg + 6, flag_min_depth, flag_max_depth, "invalid argument --depth=");
                 else if (strcmp(arg, "dereference") == 0)
                   flag_dereference = true;
+                else if (strcmp(arg, "dereference-files") == 0)
+                  flag_dereference_files = true;
                 else if (strcmp(arg, "dereference-recursive") == 0)
                   flag_directories = "dereference-recurse";
                 else if (strncmp(arg, "devices=", 8) == 0)
@@ -4490,7 +4691,7 @@ void options(std::list<std::pair<CNF::PATTERN,const char*>>& pattern_args, int a
                     strcmp(arg, "directories") == 0)
                   usage("missing argument for --", arg);
                 else
-                  usage("invalid option --", arg, "--decompress, --depth, --dereference, --dereference-recursive, --devices, --directories or --dotall");
+                  usage("invalid option --", arg, "--decompress, --depth, --dereference, --dereference-files, --dereference-recursive, --devices, --directories or --dotall");
                 break;
 
               case 'e':
@@ -4574,6 +4775,8 @@ void options(std::list<std::pair<CNF::PATTERN,const char*>>& pattern_args, int a
               case 'g':
                 if (strncmp(arg, "glob=", 5) == 0)
                   flag_glob.emplace_back(arg + 5);
+                else if (strcmp(arg, "glob-ignore-case") == 0)
+                  flag_glob_ignore_case = true;
                 else if (strncmp(arg, "group-separator=", 16) == 0)
                   flag_group_separator = arg + 16;
                 else if (strcmp(arg, "group-separator") == 0)
@@ -4581,7 +4784,7 @@ void options(std::list<std::pair<CNF::PATTERN,const char*>>& pattern_args, int a
                 else if (strcmp(arg, "glob") == 0)
                   usage("missing argument for --", arg);
                 else
-                  usage("invalid option --", arg, "--glob or --group-separator");
+                  usage("invalid option --", arg, "--glob, --glob-ignore-case or --group-separator");
                 break;
 
               case 'h':
@@ -4606,7 +4809,9 @@ void options(std::list<std::pair<CNF::PATTERN,const char*>>& pattern_args, int a
                 break;
 
               case 'i':
-                if (strcmp(arg, "ignore-binary") == 0)
+                if (strncmp(arg, "iglob=", 6) == 0)
+                  flag_iglob.emplace_back(arg + 6);
+                else if (strcmp(arg, "ignore-binary") == 0)
                   flag_binary_files = "without-match";
                 else if (strcmp(arg, "ignore-case") == 0)
                   flag_ignore_case = true;
@@ -4622,6 +4827,10 @@ void options(std::list<std::pair<CNF::PATTERN,const char*>>& pattern_args, int a
                   flag_include_from.emplace_back(arg + 13);
                 else if (strncmp(arg, "include-fs=", 11) == 0)
                   flag_include_fs.emplace_back(arg + 11);
+                else if (strcmp(arg, "index") == 0)
+                  flag_index = "search";
+                else if (strncmp(arg, "index=", 6) == 0)
+                  flag_index = arg + 6;
                 else if (strcmp(arg, "initial-tab") == 0)
                   flag_initial_tab = true;
                 else if (strcmp(arg, "invert-match") == 0)
@@ -4727,6 +4936,8 @@ void options(std::list<std::pair<CNF::PATTERN,const char*>>& pattern_args, int a
                   flag_decompress = false;
                 else if (strcmp(arg, "no-dereference") == 0)
                   flag_no_dereference = true;
+                else if (strcmp(arg, "no-dereference-files") == 0)
+                  flag_dereference_files = false;
                 else if (strcmp(arg, "no-dotall") == 0)
                   flag_dotall = false;
                 else if (strcmp(arg, "no-empty") == 0)
@@ -4735,6 +4946,8 @@ void options(std::list<std::pair<CNF::PATTERN,const char*>>& pattern_args, int a
                   flag_no_filename = true;
                 else if (strcmp(arg, "no-filter") == 0)
                   flag_filter.clear();
+                else if (strcmp(arg, "no-glob-ignore-case") == 0)
+                  flag_glob_ignore_case = false;
                 else if (strcmp(arg, "no-group-separator") == 0)
                   flag_group_separator = NULL;
                 else if (strcmp(arg, "no-heading") == 0)
@@ -4784,7 +4997,7 @@ void options(std::list<std::pair<CNF::PATTERN,const char*>>& pattern_args, int a
                 else if (strcmp(arg, "neg-regexp") == 0)
                   usage("missing argument for --", arg);
                 else
-                  usage("invalid option --", arg, "--neg-regexp, --not, --no-any-line, --no-binary, --no-bool, --no-break, --no-byte-offset, --no-color, --no-confirm, --no-decompress, --no-dereference, --no-dotall, --no-empty, --no-filename, --no-filter, --no-group-separator, --no-heading, --no-hidden, --no-hyperlink, --no-ignore-binary, --no-ignore-case, --no-ignore-files --no-initial-tab, --no-invert-match, --no-line-number, --no-only-line-number, --no-only-matching, --no-messages, --no-mmap, --no-pager, --no-pretty, --no-smart-case, --no-sort, --no-stats, --no-tree, --no-ungroup, --no-view or --null");
+                  usage("invalid option --", arg, "--neg-regexp, --not, --no-any-line, --no-binary, --no-bool, --no-break, --no-byte-offset, --no-color, --no-confirm, --no-decompress, --no-dereference, --no-dereference-files, --no-dotall, --no-empty, --no-filename, --no-filter, --glob-no-ignore-case, --no-group-separator, --no-heading, --no-hidden, --no-hyperlink, --no-ignore-binary, --no-ignore-case, --no-ignore-files --no-initial-tab, --no-invert-match, --no-line-number, --no-only-line-number, --no-only-matching, --no-messages, --no-mmap, --no-pager, --no-pretty, --no-smart-case, --no-sort, --no-stats, --no-tree, --no-ungroup, --no-view or --null");
                 break;
 
               case 'o':
@@ -5189,7 +5402,7 @@ void options(std::list<std::pair<CNF::PATTERN,const char*>>& pattern_args, int a
             break;
 
           case 'S':
-            flag_dereference = true;
+            flag_dereference_files = true;
             break;
 
           case 's':
@@ -5512,7 +5725,8 @@ void init(int argc, const char **argv)
 
   if (strncmp(program, "ug", len) == 0)
   {
-    // the 'ug' command is equivalent to 'ugrep --sort --config' to sort output by default and load custom configuration files, when no --config=FILE is specified
+    // the 'ug' command is equivalent to 'ugrep --config --pretty --sort' to load custom configuration files, when no --config=FILE is specified
+    flag_pretty = true;
     flag_sort = "name";
     if (flag_config == NULL)
       load_config(pattern_args);
@@ -5680,7 +5894,7 @@ void init(int argc, const char **argv)
 
     if (encoding_table[i].format == NULL)
     {
-      std::string msg = "invalid argument --encoding=ENCODING, valid arguments are";
+      std::string msg("invalid argument --encoding=ENCODING, valid arguments are");
 
       for (int i = 0; encoding_table[i].format != NULL; ++i)
         msg.append(" '").append(encoding_table[i].format).append("',");
@@ -5924,6 +6138,7 @@ void init(int argc, const char **argv)
       if (flag_directories_action == Action::UNSP)
         flag_directories_action = Action::RECURSE;
 
+      // recursive search with worker threads
       flag_all_threads = true;
     }
     else
@@ -6151,6 +6366,7 @@ void init(int argc, const char **argv)
       if (fopen_smart(&file, from.c_str(), "r") != 0)
         error("option --exclude-from: cannot read", from.c_str());
 
+      // push globs imported from the file to the back of the vectors
       import_globs(file, flag_exclude, flag_exclude_dir);
 
       if (file != stdin)
@@ -6168,6 +6384,7 @@ void init(int argc, const char **argv)
       if (fopen_smart(&file, from.c_str(), "r") != 0)
         error("option --include-from: cannot read", from.c_str());
 
+      // push globs imported from the file to the back of the vectors
       import_globs(file, flag_include, flag_include_dir);
 
       if (file != stdin)
@@ -6206,7 +6423,7 @@ void init(int argc, const char **argv)
 
         if (type_table[i].type == NULL)
         {
-          std::string msg = "invalid argument -t TYPES, valid arguments are";
+          std::string msg("invalid argument -t TYPES, valid arguments are");
 
           for (int i = 0; type_table[i].type != NULL; ++i)
             msg.append(" '").append(type_table[i].type).append("',");
@@ -6389,11 +6606,11 @@ void terminal()
     // is output sent to a color TTY, to a pager, or to /dev/null?
 
     // check if standard output is a TTY
-    tty_term = isatty(STDOUT_FILENO) != 0;
+    flag_tty_term = isatty(STDOUT_FILENO) != 0;
 
 #ifndef OS_WIN
 
-    if (!tty_term)
+    if (!flag_tty_term)
     {
       output_stat_result = fstat(STDOUT_FILENO, &output_stat) == 0;
       output_stat_regular = output_stat_result && S_ISREG(output_stat.st_mode);
@@ -6418,7 +6635,7 @@ void terminal()
 
   if (!flag_quiet)
   {
-    if (tty_term || flag_query > 0)
+    if (flag_tty_term || flag_query > 0)
     {
       if (flag_pretty)
       {
@@ -6502,10 +6719,10 @@ void terminal()
       }
     }
 
-    // --color: (re)set flag_apply_color depending on color_term and TTY output
+    // --color: (re)set flag_apply_color depending on color term and TTY output
     if (flag_apply_color != NULL)
     {
-      color_term = flag_query > 0;
+      flag_color_term = flag_query > 0;
 
       if (strcmp(flag_apply_color, "never") == 0 || strcmp(flag_apply_color, "no") == 0 || strcmp(flag_apply_color, "none") == 0)
       {
@@ -6515,7 +6732,7 @@ void terminal()
       {
 #ifdef OS_WIN
 
-        if (tty_term || flag_query > 0)
+        if (flag_tty_term || flag_query > 0)
         {
 #ifdef ENABLE_VIRTUAL_TERMINAL_PROCESSING
           // assume we have a color terminal on Windows if isatty() is true
@@ -6530,7 +6747,7 @@ void terminal()
             DWORD outMode;
             GetConsoleMode(hConOut, &outMode);
             outMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-            color_term = SetConsoleMode(hConOut, outMode) != 0;
+            flag_color_term = SetConsoleMode(hConOut, outMode) != 0;
           }
 #endif
         }
@@ -6538,7 +6755,7 @@ void terminal()
 #else
 
         // check whether we have a color terminal
-        if (tty_term)
+        if (flag_tty_term)
         {
           const char *term;
           if (getenv("COLORTERM") != NULL ||
@@ -6547,14 +6764,14 @@ void terminal()
                 strstr(term, "xterm") != NULL ||
                 strstr(term, "screen") != NULL ||
                 strstr(term, "color") != NULL)))
-            color_term = true;
+            flag_color_term = true;
         }
 
 #endif
 
         if (strcmp(flag_apply_color, "auto") == 0 || strcmp(flag_apply_color, "tty") == 0 || strcmp(flag_apply_color, "if-tty") == 0)
         {
-          if (!color_term)
+          if (!flag_color_term)
             flag_apply_color = NULL;
         }
         else if (strcmp(flag_apply_color, "always") != 0 && strcmp(flag_apply_color, "yes") != 0 && strcmp(flag_apply_color, "force") != 0)
@@ -6724,17 +6941,16 @@ void ugrep()
   Output::Tree::path.clear();
   Output::Tree::depth = 0;
 
-  // populate the combined all-include and all-exclude
-  flag_all_include = flag_include;
-  flag_all_include_dir = flag_include_dir;
-  flag_all_exclude = flag_exclude;
-  flag_all_exclude_dir = flag_exclude_dir;
+  // all globs are case-sensitive by default, unless --glob-ignore-case and --iglob are specified
+  flag_include_iglob_size = 0;
+  flag_exclude_iglob_size = 0;
+  flag_include_iglob_dir_size = 0;
+  flag_exclude_iglob_dir_size = 0;
 
-  // -g, --glob: add globs to all-include/all-exclude
-  for (const auto& globs : flag_glob)
+  // --iglob: add case-insensitive globs to all-include-iglob/all-exclude-iglob if not --glob-ignore-case
+  for (const auto& globs : flag_iglob)
   {
     size_t from = 0;
-    std::string glob;
 
     while (true)
     {
@@ -6749,9 +6965,20 @@ void ugrep()
         {
           ++from;
           --size;
+          flag_all_exclude.emplace_back(globs.substr(from, size));
+          if (globs[from + size - 1] == '/')
+            ++flag_exclude_iglob_dir_size;
+          else
+            ++flag_exclude_iglob_size;
         }
-
-        (negate ? flag_all_exclude : flag_all_include).emplace_back(globs.substr(from, size));
+        else
+        {
+          flag_all_include.emplace_back(globs.substr(from, size));
+          if (globs[from + size - 1] == '/')
+            ++flag_include_iglob_dir_size;
+          else
+            ++flag_include_iglob_size;
+        }
       }
 
       if (to == std::string::npos)
@@ -6760,6 +6987,45 @@ void ugrep()
       from = to + 1;
     }
   }
+
+  // -g, --glob: add globs to all-include/all-exclude
+  for (const auto& globs : flag_glob)
+  {
+    size_t from = 0;
+
+    while (true)
+    {
+      size_t to = globs.find(',', from);
+      size_t size = (to == std::string::npos ? globs.size() : to) - from;
+
+      if (size > 0)
+      {
+        bool negate = size > 1 && (globs[from] == '!' || globs[from] == '^');
+
+        if (negate)
+        {
+          ++from;
+          --size;
+          flag_all_exclude.emplace_back(globs.substr(from, size));
+        }
+        else
+        {
+          flag_all_include.emplace_back(globs.substr(from, size));
+        }
+      }
+
+      if (to == std::string::npos)
+        break;
+
+      from = to + 1;
+    }
+  }
+
+  // populate the combined all-include and all-exclude
+  flag_all_include.insert(flag_all_include.begin(), flag_include.begin(), flag_include.end());
+  flag_all_exclude.insert(flag_all_exclude.begin(), flag_exclude.begin(), flag_exclude.end());
+  flag_all_include_dir = flag_include_dir;
+  flag_all_exclude_dir = flag_exclude_dir;
 
   // all excluded files: normalize by moving directory globs (globs ending in a path separator /) to --exclude-dir
   auto i = flag_all_exclude.begin();
@@ -6901,6 +7167,15 @@ void ugrep()
   for (auto& i : flag_all_include_dir)
     while (i.size() > 1 && i.back() == '/')
       i.pop_back();
+
+  // keep track which globs are case-insensitive when --glob-ignore-case is specified, i.e. not --ignore-file globs
+  if (flag_glob_ignore_case)
+  {
+    flag_exclude_iglob_size = flag_all_exclude.size();
+    flag_exclude_iglob_dir_size = flag_all_exclude_dir.size();
+    flag_include_iglob_size = flag_all_include.size();
+    flag_include_iglob_dir_size = flag_all_include_dir.size();
+  }
 
   // --sort: check sort KEY and set flags
   if (flag_sort != NULL)
@@ -7044,9 +7319,6 @@ void ugrep()
       FILE *file = NULL;
 
       if (fopen_smart(&file, filename.c_str(), "r") != 0)
-        file = NULL;
-
-      if (file == NULL)
       {
         // could not open, try GREP_PATH environment variable
         char *env_grep_path = NULL;
@@ -7090,10 +7362,36 @@ void ugrep()
         fclose(file);
     }
 
-    // pop unused ending '|' (or BRE '\|') from the |-concatenated regexes in the regex string
-    regex.pop_back();
-    if (flag_basic_regexp)
+    if (regex.empty())
+    {
+      if (flag_count)
+      {
+        // regex optimized for speed, but match count needs adjustment later when last line has no \n
+        regex = "\\n";
+      }
+      else if (!flag_quiet && !flag_files_with_matches && !flag_files_without_match)
+      {
+        if (flag_hex)
+          regex = ".*\\n?"; // include trailing \n of a line when outputting hex
+        else
+          regex = "^.*"; // use ^.* to prevent -o from reporting an extra empty match
+      }
+
+      // an empty pattern matches every line
+      flag_empty = true;
+      flag_dotall = false;
+
+      // CNF is empty if all patterns are empty
+      if (bcnf.empty())
+        flag_match = true;
+    }
+    else
+    {
+      // pop unused ending '|' (or BRE '\|') from the |-concatenated regexes in the regex string
       regex.pop_back();
+      if (flag_basic_regexp)
+        regex.pop_back();
+    }
 
     // -G requires \( \) instead of ( ) and -P requires (?<!\w) (?!\w) instead of \< and \>
     const char *xleft = flag_basic_regexp ? "^\\(" : "^(?:";
@@ -7195,7 +7493,7 @@ void ugrep()
 
   // -p (--no-dereference) and -S (--dereference): -p takes priority over -S and -R
   if (flag_no_dereference)
-    flag_dereference = false;
+    flag_dereference = flag_dereference_files = false;
 
   // display file name if more than one input file is specified or options -R, -r, and option -h --no-filename is not specified
   if (!flag_no_filename && (flag_all_threads || flag_directories_action == Action::RECURSE || arg_files.size() > 1 || (flag_stdin && !arg_files.empty())))
@@ -7249,8 +7547,11 @@ void ugrep()
   {
     unsigned int cores = std::thread::hardware_concurrency();
     unsigned int concurrency = cores > 2 ? cores : 2;
-    // reduce concurrency by one for 8+ core CPUs
-    concurrency -= concurrency / 9;
+    // reduce concurrency by a few for 9+ core CPUs
+    if (concurrency >= 10)
+      concurrency -= concurrency / 5;
+    else
+      concurrency -= concurrency / 9;
     flag_jobs = std::min(concurrency, MAX_JOBS);
   }
 
@@ -7316,12 +7617,41 @@ void ugrep()
   if (flag_format_begin != NULL)
     Output(output).format(flag_format_begin, 0);
 
+  // --index: index search is not applicable to non-recursive searching
+  if (flag_directories_action != Action::RECURSE)
+    flag_index = NULL;
+
+  // --index: search is only possible with compatible options
+  if (flag_index != NULL)
+  {
+#ifndef OS_WIN
+    if (flag_perl_regexp)
+      usage("options --index and -P (--perl-regexp) are not compatible");
+    if (!flag_filter.empty())
+      usage("options --index and --filter are not compatible");
+    if (flag_fuzzy > 0)
+      usage("options --index and -Z (--fuzzy) are not compatible");
+    if (flag_invert_match)
+      usage("options --index and -v (--invert-match) are not compatible");
+    if (flag_decompress)
+      usage("options --index with -z (--decompress) is not yet available in this version of ugrep");
+
+    // -c and --index: force --min-count larger than 0, because indexed search skips non-matching files
+    if (flag_count && flag_min_count == 0)
+      flag_min_count = 1;
+#else
+    usage("option --index is not yet available on this architecture");
+#endif
+  }
+
   size_t nodes = 0;
   size_t edges = 0;
   size_t words = 0;
+  size_t hashes = 0;
   size_t nodes_time = 0;
   size_t edges_time = 0;
   size_t words_time = 0;
+  size_t hashing_time = 0;
 
   // -P: Perl matching with PCRE2 or Boost.Regex
   if (flag_perl_regexp)
@@ -7473,7 +7803,7 @@ void ugrep()
   else
   {
     // construct the RE/flex DFA-based pattern matcher and start matching files
-    reflex::Pattern pattern(reflex::Matcher::convert(regex, convert_flags), "r");
+    reflex::Pattern pattern(reflex::Matcher::convert(regex, convert_flags), (flag_index != NULL ? "hr" : "r"));
     std::list<reflex::Pattern> patterns;
     Grep::Matchers matchers;
 
@@ -7552,6 +7882,10 @@ void ugrep()
         }
       }
 
+      // --index: perform indexed search using the pattern indexing hash finite state automaton (HFA)
+      if (flag_index != NULL && pattern.has_hfa())
+        index_pattern = &pattern;
+
       if (threads > 1)
       {
         GrepMaster grep(output, &matcher, bcnf.singleton_or_undefined() ? NULL : &matchers);
@@ -7564,14 +7898,20 @@ void ugrep()
         grep.ugrep();
         clear_grep_handle();
       }
+
+      // pattern is out of scope and implicitly deleted, invalidating this pointer
+      index_pattern = NULL;
     }
 
     nodes = pattern.nodes();
     edges = pattern.edges();
     words = pattern.words();
+    hashes = pattern.hashes();
+    
     nodes_time = static_cast<size_t>(pattern.nodes_time());
     edges_time = static_cast<size_t>(pattern.parse_time() + pattern.edges_time());
     words_time = static_cast<size_t>(pattern.words_time());
+    hashing_time = static_cast<size_t>(pattern.hashing_time());
   }
 
   // --tree with -l or -c but not --format
@@ -7595,7 +7935,12 @@ void ugrep()
     bcnf.report(output);
 
     if (strcmp(flag_stats, "vm") == 0 && words > 0)
-      fprintf(output, "VM: %zu nodes (%zums), %zu edges (%zums), %zu opcode words (%zums)" NEWLINESTR, nodes, nodes_time, edges, edges_time, words, words_time);
+    {
+      fprintf(output, "VM: %zu nodes (%zums) %zu edges (%zums) %zu opcode words (%zums)", nodes, nodes_time, edges, edges_time, words, words_time);
+      if (hashes > 0)
+        fprintf(output, " %zu hash tables (%zums)", hashes, hashing_time);
+      fprintf(output, NEWLINESTR);
+    }
   }
 
   // close the pipe to the forked pager
@@ -7751,12 +8096,13 @@ Grep::Type Grep::select(size_t level, const char *pathname, const char *basename
           bool ok = true;
           for (const auto& glob : flag_all_exclude_dir)
           {
+            bool ignore_case = &glob < &flag_all_exclude_dir.front() + flag_exclude_iglob_size;
             if (glob.front() == '!')
             {
-              if (!ok && glob_match(pathname, basename, glob.c_str() + 1))
+              if (!ok && glob_match(pathname, basename, glob.c_str() + 1, ignore_case))
                 ok = true;
             }
-            else if (ok && glob_match(pathname, basename, glob.c_str()))
+            else if (ok && glob_match(pathname, basename, glob.c_str(), ignore_case))
             {
               ok = false;
             }
@@ -7771,12 +8117,13 @@ Grep::Type Grep::select(size_t level, const char *pathname, const char *basename
           bool ok = false;
           for (const auto& glob : flag_all_include_dir)
           {
+            bool ignore_case = &glob < &flag_all_include_dir.front() + flag_include_iglob_size;
             if (glob.front() == '!')
             {
-              if (ok && glob_match(pathname, basename, glob.c_str() + 1))
+              if (ok && glob_match(pathname, basename, glob.c_str() + 1, ignore_case))
                 ok = false;
             }
-            else if (!ok && glob_match(pathname, basename, glob.c_str()))
+            else if (!ok && glob_match(pathname, basename, glob.c_str(), ignore_case))
             {
               ok = true;
             }
@@ -7801,12 +8148,13 @@ Grep::Type Grep::select(size_t level, const char *pathname, const char *basename
       bool ok = true;
       for (const auto& glob : flag_all_exclude)
       {
+        bool ignore_case = &glob < &flag_all_exclude.front() + flag_exclude_iglob_size;
         if (glob.front() == '!')
         {
-          if (!ok && glob_match(pathname, basename, glob.c_str() + 1))
+          if (!ok && glob_match(pathname, basename, glob.c_str() + 1, ignore_case))
             ok = true;
         }
-        else if (ok && glob_match(pathname, basename, glob.c_str()))
+        else if (ok && glob_match(pathname, basename, glob.c_str(), ignore_case))
         {
           ok = false;
         }
@@ -7869,12 +8217,13 @@ Grep::Type Grep::select(size_t level, const char *pathname, const char *basename
       bool ok = false;
       for (const auto& glob : flag_all_include)
       {
+        bool ignore_case = &glob < &flag_all_include.front() + flag_include_iglob_size;
         if (glob.front() == '!')
         {
-          if (ok && glob_match(pathname, basename, glob.c_str() + 1))
+          if (ok && glob_match(pathname, basename, glob.c_str() + 1), ignore_case)
             ok = false;
         }
-        else if (!ok && glob_match(pathname, basename, glob.c_str()))
+        else if (!ok && glob_match(pathname, basename, glob.c_str(), ignore_case))
         {
           ok = true;
         }
@@ -7892,7 +8241,7 @@ Grep::Type Grep::select(size_t level, const char *pathname, const char *basename
 
   struct stat buf;
 
-  // -R or -S or command line argument FILE to search: follow symlinks
+  // -R or -S or command line argument FILE to search: follow symlinks to directories
   bool follow = flag_dereference || is_argument;
 
   // if dir entry is unknown and not following, then use lstat() to check if pathname is a symlink
@@ -7911,8 +8260,8 @@ Grep::Type Grep::select(size_t level, const char *pathname, const char *basename
       // check if directory
       if (type == DIRENT_TYPE_DIR || ((type == DIRENT_TYPE_UNKNOWN || type == DIRENT_TYPE_LNK) && S_ISDIR(buf.st_mode)))
       {
-        // if symlinked then follow into directory?
-        if (follow || !symlink)
+        // if symlinked directory, then follow only if -R is specified or if FILE is a command line argument
+        if (!symlink || follow)
         {
           if (flag_directories_action == Action::READ)
           {
@@ -7944,12 +8293,13 @@ Grep::Type Grep::select(size_t level, const char *pathname, const char *basename
                 bool ok = true;
                 for (const auto& glob : flag_all_exclude_dir)
                 {
+                  bool ignore_case = &glob < &flag_all_exclude_dir.front() + flag_exclude_iglob_dir_size;
                   if (glob.front() == '!')
                   {
-                    if (!ok && glob_match(pathname, basename, glob.c_str() + 1))
+                    if (!ok && glob_match(pathname, basename, glob.c_str() + 1, ignore_case))
                       ok = true;
                   }
-                  else if (ok && glob_match(pathname, basename, glob.c_str()))
+                  else if (ok && glob_match(pathname, basename, glob.c_str(), ignore_case))
                   {
                     ok = false;
                   }
@@ -7964,12 +8314,13 @@ Grep::Type Grep::select(size_t level, const char *pathname, const char *basename
                 bool ok = false;
                 for (const auto& glob : flag_all_include_dir)
                 {
+                  bool ignore_case = &glob < &flag_all_include_dir.front() + flag_include_iglob_dir_size;
                   if (glob.front() == '!')
                   {
-                    if (ok && glob_match(pathname, basename, glob.c_str() + 1))
+                    if (ok && glob_match(pathname, basename, glob.c_str() + 1, ignore_case))
                       ok = false;
                   }
-                  else if (!ok && glob_match(pathname, basename, glob.c_str()))
+                  else if (!ok && glob_match(pathname, basename, glob.c_str(), ignore_case))
                   {
                     ok = true;
                   }
@@ -7990,8 +8341,8 @@ Grep::Type Grep::select(size_t level, const char *pathname, const char *basename
       }
       else if (type == DIRENT_TYPE_REG ? !is_output(inode) : (type == DIRENT_TYPE_UNKNOWN || type == DIRENT_TYPE_LNK) && S_ISREG(buf.st_mode) ? !is_output(buf.st_ino) : flag_devices_action == Action::READ)
       {
-        // if not -p or if follow or if not symlinked then search file
-        if (!flag_no_dereference || follow || !symlink)
+        // if symlinked files, then follow only if -R or -S is specified or if FILE is a command line argument
+        if (!symlink || follow || flag_dereference_files)
         {
           // --depth: recursion level not deep enough?
           if (flag_min_depth > 0 && level <= flag_min_depth)
@@ -8003,12 +8354,13 @@ Grep::Type Grep::select(size_t level, const char *pathname, const char *basename
             bool ok = true;
             for (const auto& glob : flag_all_exclude)
             {
+              bool ignore_case = &glob < &flag_all_exclude.front() + flag_exclude_iglob_size;
               if (glob.front() == '!')
               {
-                if (!ok && glob_match(pathname, basename, glob.c_str() + 1))
+                if (!ok && glob_match(pathname, basename, glob.c_str() + 1, ignore_case))
                   ok = true;
               }
-              else if (ok && glob_match(pathname, basename, glob.c_str()))
+              else if (ok && glob_match(pathname, basename, glob.c_str(), ignore_case))
               {
                 ok = false;
               }
@@ -8076,12 +8428,13 @@ Grep::Type Grep::select(size_t level, const char *pathname, const char *basename
             bool ok = false;
             for (const auto& glob : flag_all_include)
             {
+              bool ignore_case = &glob < &flag_all_include.front() + flag_include_iglob_size;
               if (glob.front() == '!')
               {
-                if (ok && glob_match(pathname, basename, glob.c_str() + 1))
+                if (ok && glob_match(pathname, basename, glob.c_str() + 1, ignore_case))
                   ok = false;
               }
-              else if (!ok && glob_match(pathname, basename, glob.c_str()))
+              else if (!ok && glob_match(pathname, basename, glob.c_str(), ignore_case))
               {
                 ok = true;
               }
@@ -8167,31 +8520,40 @@ void Grep::recurse(size_t level, const char *pathname)
     return;
   }
 
+  bool index_demand = index_pattern != NULL;
+  std::map<std::string,bool> indexed;
+
+  // the indexing file stored per indexed directory and index file identifying magic bytes
+  static const char ugrep_index_filename[] = "._UG#_Store";
+  static const char ugrep_index_file_magic[5] = "UG#\x03";
+
 #endif
 
   // --ignore-files: check if one or more are present to read and extend the file and dir exclusions
-  std::vector<std::string> save_all_exclude, save_all_exclude_dir;
+  size_t saved_all_exclude_size = 0;
+  size_t saved_all_exclude_dir_size = 0;
   bool saved = false;
 
   if (!flag_ignore_files.empty())
   {
-    std::string filename;
+    std::string ignore_filename;
 
     for (const auto& i : flag_ignore_files)
     {
-      filename.assign(pathname).append(PATHSEPSTR).append(i);
+      ignore_filename.assign(pathname).append(PATHSEPSTR).append(i);
 
       FILE *file = NULL;
-      if (fopenw_s(&file, filename.c_str(), "r") == 0)
+      if (fopenw_s(&file, ignore_filename.c_str(), "r") == 0)
       {
         if (!saved)
         {
-          save_all_exclude = flag_all_exclude;
-          save_all_exclude_dir = flag_all_exclude_dir;
+          saved_all_exclude_size = flag_all_exclude.size();
+          saved_all_exclude_dir_size = flag_all_exclude_dir.size();
           saved = true;
         }
 
-        Stats::ignore_file(filename);
+        // push globs imported from the ignore file to the back of the vectors
+        Stats::ignore_file(ignore_filename);
         import_globs(file, flag_all_exclude, flag_all_exclude_dir);
         fclose(file);
       }
@@ -8202,12 +8564,12 @@ void Grep::recurse(size_t level, const char *pathname)
 
   std::vector<Entry> file_entries;
   std::vector<Entry> dir_entries;
-  std::string dirpathname;
+  std::string entry_pathname;
 
 #ifdef OS_WIN
 
   std::string cFileName;
-  uint64_t index = 0;
+  uint64_t list = 0;
 
   do
   {
@@ -8219,11 +8581,11 @@ void Grep::recurse(size_t level, const char *pathname)
       size_t len = strlen(pathname);
 
       if (len == 1 && pathname[0] == '.')
-        dirpathname.assign(cFileName);
+        entry_pathname.assign(cFileName);
       else if (len > 0 && pathname[len - 1] == PATHSEPCHR)
-        dirpathname.assign(pathname).append(cFileName);
+        entry_pathname.assign(pathname).append(cFileName);
       else
-        dirpathname.assign(pathname).append(PATHSEPSTR).append(cFileName);
+        entry_pathname.assign(pathname).append(PATHSEPSTR).append(cFileName);
 
       ino_t inode = 0;
       uint64_t info = 0;
@@ -8237,7 +8599,7 @@ void Grep::recurse(size_t level, const char *pathname)
         }
         else if (flag_sort_key == Sort::LIST)
         {
-          info = index++;
+          info = list++;
         }
         else
         {
@@ -8246,18 +8608,18 @@ void Grep::recurse(size_t level, const char *pathname)
         }
       }
 
-      // search dirpathname, unless searchable directory into which we should recurse
-      switch (select(level + 1, dirpathname.c_str(), cFileName.c_str(), DIRENT_TYPE_UNKNOWN, inode, info))
+      // search entry_pathname, unless searchable directory into which we should recurse
+      switch (select(level + 1, entry_pathname.c_str(), cFileName.c_str(), DIRENT_TYPE_UNKNOWN, inode, info))
       {
         case Type::DIRECTORY:
-          dir_entries.emplace_back(dirpathname, 0, info);
+          dir_entries.emplace_back(entry_pathname, 0, info);
           break;
 
         case Type::OTHER:
           if (flag_sort_key == Sort::NA)
-            search(dirpathname.c_str(), Entry::UNDEFINED_COST);
+            search(entry_pathname.c_str(), Entry::UNDEFINED_COST);
           else
-            file_entries.emplace_back(dirpathname, 0, info);
+            file_entries.emplace_back(entry_pathname, 0, info);
           break;
 
         case Type::SKIP:
@@ -8279,49 +8641,193 @@ void Grep::recurse(size_t level, const char *pathname)
 #else
 
   struct dirent *dirent = NULL;
-  uint64_t index = 0;
+  uint64_t list = 0;
 
   while ((dirent = readdir(dir)) != NULL)
   {
     // search directory entries that aren't . or .. or hidden
     if (dirent->d_name[0] != '.' || (flag_hidden && dirent->d_name[1] != '\0' && dirent->d_name[1] != '.'))
     {
+      // --index: do not search index files, even when --hidden is specified
+      if (flag_index != NULL && strcmp(dirent->d_name, ugrep_index_filename) == 0)
+        continue;
+
       size_t len = strlen(pathname);
 
       if (len == 1 && pathname[0] == '.')
-        dirpathname.assign(dirent->d_name);
+        entry_pathname.assign(dirent->d_name);
       else if (len > 0 && pathname[len - 1] == PATHSEPCHR)
-        dirpathname.assign(pathname).append(dirent->d_name);
+        entry_pathname.assign(pathname).append(dirent->d_name);
       else
-        dirpathname.assign(pathname).append(PATHSEPSTR).append(dirent->d_name);
+        entry_pathname.assign(pathname).append(PATHSEPSTR).append(dirent->d_name);
 
       Type type;
       ino_t inode;
       uint64_t info;
 
-      // search dirpathname, unless searchable directory into which we should recurse
+      // search entry_pathname, unless searchable directory into which we should recurse
 #if defined(HAVE_STRUCT_DIRENT_D_TYPE) && defined(HAVE_STRUCT_DIRENT_D_INO)
       inode = dirent->d_ino;
-      type = select(level + 1, dirpathname.c_str(), dirent->d_name, dirent->d_type, inode, info);
+      type = select(level + 1, entry_pathname.c_str(), dirent->d_name, dirent->d_type, inode, info);
 #else
       inode = 0;
-      type = select(level + 1, dirpathname.c_str(), dirent->d_name, DIRENT_TYPE_UNKNOWN, inode, info);
+      type = select(level + 1, entry_pathname.c_str(), dirent->d_name, DIRENT_TYPE_UNKNOWN, inode, info);
 #endif
 
       if (flag_sort_key == Sort::LIST)
-        info = index++;
+        info = list++;
+
+      // --index: search indexed files quickly, but only on demand
+      if (type == Type::OTHER && index_pattern != NULL)
+      {
+        // if we did not check for an index file yet, then check it now by demand and read it when found
+        if (index_demand)
+        {
+          // check no more than once
+          index_demand = false;
+
+          // check if an index file is present and use it
+          FILE *index_file = NULL;
+          std::string index_filename(pathname);
+          index_filename.append(PATHSEPSTR).append(ugrep_index_filename);
+
+          if (fopenw_s(&index_file, index_filename.c_str(), "rb") == 0)
+          {
+            char check_magic[sizeof(ugrep_index_file_magic)];
+
+            // if an index file is present in the directory pathname, then read and stat it
+            if (fread(check_magic, sizeof(ugrep_index_file_magic), 1, index_file) != 0 &&
+                memcmp(check_magic, ugrep_index_file_magic, sizeof(ugrep_index_file_magic)) == 0)
+            {
+              struct stat buf;
+
+              if (fstat(fileno(index_file), &buf) == 0)
+              {
+                // time of indexing to check which files were modified after indexing
+                uint64_t index_time = Entry::modified_time(buf);
+
+                // allocate a buffer, not on the stack, because we are in a deeply recursive function
+                char *buffer = new char[65536];
+                uint8_t header[4];
+                std::string index_pathname;
+
+                // populate index set
+                while (true)
+                {
+                  if (fread(header, sizeof(header), 1, index_file) == 0)
+                    break;
+
+                  uint16_t basename_size = header[2] | (header[3] << 8);
+
+                  if (fread(buffer, 1, basename_size, index_file) < basename_size)
+                    break;
+
+                  // hashes table size, zero to skip empty files and binary files when -I is specified
+                  size_t hashes_size = 0;
+                  uint8_t logsize = header[1] & 0x1f;
+                  if (logsize > 0)
+                    for (hashes_size = 1; logsize > 0; --logsize)
+                      hashes_size <<= 1;
+
+                  // sanity check
+                  if (hashes_size > 65536)
+                    break;
+
+                  size_t len = strlen(pathname);
+
+                  if (len == 1 && pathname[0] == '.')
+                    index_pathname.assign(buffer, basename_size);
+                  else if (len > 0 && pathname[len - 1] == PATHSEPCHR)
+                    index_pathname.assign(pathname).append(buffer, basename_size);
+                  else
+                    index_pathname.assign(pathname).append(PATHSEPSTR).append(buffer, basename_size);
+
+                  // populate the indexing map for this directory
+                  std::map<std::string,bool>::iterator skip = indexed.emplace(std::string(buffer, basename_size), false).first;
+
+                  if (hashes_size > 0 && fread(buffer, hashes_size, 1, index_file) == 0)
+                    break;
+
+                  Stats::score_indexed();
+
+                  // the file to search was not modified after indexing
+                  if (stat(index_pathname.c_str(), &buf) == 0 && Entry::modified_time(buf) <= index_time)
+                  {
+                    // -I: if the file to search is a binary file, then skip it
+                    if ((header[1] & 0x80) != 0 && flag_binary_without_match)
+                    {
+                      skip->second = true;
+                      Stats::score_skipped();
+                    }
+                    else if (hashes_size > 0)
+                    {
+                      // check if the hashed pattern has a potential match with the file's index hash
+                      if (index_pattern->match_hfa(reinterpret_cast<const uint8_t*>(buffer), hashes_size))
+                      {
+                        if (*flag_index == 'd')
+                          fprintf(stderr, "INDEX DEBUG: %s\n", index_pathname.c_str());
+                      }
+                      else
+                      {
+                        // skip file, not changed and does not match
+                        skip->second = true;
+                        Stats::score_skipped();
+                      }
+                    }
+                    else if ((header[1] & 0x80) == 0)
+                    {
+                      // skip file, not changed and is empty
+                      skip->second = true;
+                      Stats::score_skipped();
+                    }
+                    else
+                    {
+                      if (*flag_index == 'd')
+                        fprintf(stderr, "INDEX DEBUG: %s (not indexed binary)\n", index_pathname.c_str());
+                    }
+                  }
+                  else
+                  {
+                    Stats::score_changed();
+                    if (*flag_index == 'd')
+                      fprintf(stderr, "INDEX DEBUG: %s (changed)\n", index_pathname.c_str());
+                  }
+                }
+
+                delete[] buffer;
+              }
+            }
+          }
+
+          if (index_file != NULL)
+            fclose(index_file);
+        }
+
+        // check if the file to search was indexed and did not match
+        std::map<std::string,bool>::const_iterator skip = indexed.find(dirent->d_name);
+        if (skip == indexed.end())
+        {
+          Stats::score_added();
+          if (*flag_index == 'd')
+            fprintf(stderr, "INDEX DEBUG: %s (not indexed)\n", entry_pathname.c_str());
+        }
+        else if (skip->second)
+        {
+          type = Type::SKIP;
+        }
+      }
 
       switch (type)
       {
         case Type::DIRECTORY:
-          dir_entries.emplace_back(dirpathname, inode, info);
+          dir_entries.emplace_back(entry_pathname, inode, info);
           break;
 
         case Type::OTHER:
           if (flag_sort_key == Sort::NA)
-            search(dirpathname.c_str(), Entry::UNDEFINED_COST);
+            search(entry_pathname.c_str(), Entry::UNDEFINED_COST);
           else
-            file_entries.emplace_back(dirpathname, inode, info);
+            file_entries.emplace_back(entry_pathname, inode, info);
           break;
 
         case Type::SKIP:
@@ -8339,6 +8845,7 @@ void Grep::recurse(size_t level, const char *pathname)
   }
 
   closedir(dir);
+  dir = NULL;
 
 #endif
 
@@ -8450,11 +8957,11 @@ void Grep::recurse(size_t level, const char *pathname)
 #endif
   }
 
-  // --ignore-files: restore all exclusions when saved
+  // --ignore-files: restore all exclusions when saved by popping off all additions
   if (saved)
   {
-    save_all_exclude.swap(flag_all_exclude);
-    save_all_exclude_dir.swap(flag_all_exclude_dir);
+    flag_all_exclude.resize(saved_all_exclude_size);
+    flag_all_exclude_dir.resize(saved_all_exclude_dir_size);
   }
 }
 
@@ -11429,7 +11936,7 @@ exit_search:
     Stats::found_file();
 }
 
-// read globs from a file and split them into files or dirs to include or exclude
+// read globs from a file and split them into files or dirs to include or exclude by pushing them onto the vectors
 void import_globs(FILE *file, std::vector<std::string>& files, std::vector<std::string>& dirs)
 {
   // read globs from the specified file or files
@@ -11491,11 +11998,14 @@ void trim_pathname_arg(const char *arg)
 {
   // remove trailing path separators after the drive prefix and path, if any - note: this truncates argv[] strings
   const char *path = strchr(arg, ':');
+
   if (path != NULL)
     ++path;
   else
     path = arg;
+
   size_t len = strlen(path);
+
   while (len > 1 && path[--len] == PATHSEPCHR)
     const_cast<char*>(path)[len] = '\0';
 }
@@ -12043,7 +12553,7 @@ void help(std::ostream& out)
     -G, --basic-regexp\n\
             Interpret patterns as basic regular expressions (BREs), i.e. make\n\
             ugrep behave as traditional grep.\n\
-    -g GLOBS, --glob=GLOBS\n\
+    -g GLOBS, --glob=GLOBS, --iglob=GLOBS\n\
             Search only files whose name matches the specified comma-separated\n\
             list of GLOBS, same as --include='glob' for each `glob' in GLOBS.\n\
             When a `glob' is preceded by a `!' or a `^', skip files whose name\n\
@@ -12051,9 +12561,12 @@ void help(std::ostream& out)
             `/', full pathnames are matched.  Otherwise basenames are matched.\n\
             When `glob' ends with a `/', directories are matched, same as\n\
             --include-dir='glob' and --exclude-dir='glob'.  A leading `/'\n\
-            matches the working directory.  This option may be repeated and may\n\
-            be combined with options -M, -O and -t to expand searches.  See\n\
+            matches the working directory.  Option --iglob performs\n\
+            case-insensitive name matching.  This option may be repeated and\n\
+            may be combined with options -M, -O and -t to expand searches.  See\n\
             `ugrep --help globs' and `man ugrep' section GLOBBING for details.\n\
+    --glob-ignore-case\n\
+            Perform case-insensitive glob matching in general.\n\
     --group-separator[=SEP]\n\
             Use SEP as a group separator for context options -A, -B and -C.\n\
             The default is a double hyphen (`--').\n\
@@ -12068,11 +12581,12 @@ void help(std::ostream& out)
             results from different files.  This option is enabled by --pretty\n\
             when the output is sent to a terminal.\n\
     --help [WHAT], -? [WHAT]\n\
-            Display a help message, specifically on WHAT when specified.\n\
-            In addition, `--help format' displays an overview of FORMAT fields,\n\
-            `--help regex' displays an overview of regular expressions and\n\
-            `--help globs' displays an overview of glob syntax and conventions.\n\
-    --hexdump=[1-8][a][bch][A[NUM]][B[NUM]][C[NUM]]\n\
+            Display a help message on options related to WHAT when specified.\n\
+            In addition, `--help regex' displays an overview of regular\n\
+            expressions, `--help globs' displays an overview of glob syntax and\n\
+            conventions.  `--help fuzzy' displays details of fuzzy search with\n\
+            option -Z and `--help format' displays a list of --format fields.\n\
+    --hexdump[=[1-8][a][bch][A[NUM]][B[NUM]][C[NUM]]]\n\
             Output matches in 1 to 8 columns of 8 hexadecimal octets.  The\n\
             default is 2 columns or 16 octets per line.  Option `a' outputs a\n\
             `*' for all hex lines that are identical to the previous hex line,\n\
@@ -12152,6 +12666,15 @@ void help(std::ostream& out)
             This option is not available in this build configuration of ugrep.\n"
 #endif
             "\
+    --index\n\
+            Perform indexing-based search on files indexed with ugrep-indexer.\n\
+            Recursive searches are performed by skipping non-matching files.\n\
+            Binary files are skipped with option -I.  Note that the start-up\n\
+            time to search is increased, which may be significant when complex\n\
+            search patterns are specified that contain large Unicode character\n\
+            classes with `*' or `+' repeats, which should be avoided.  Option\n\
+            -U (--ascii) improves performance.  Option --stats=vm displays a\n\
+            detailed indexing-based search report.  This is a beta feature.\n\
     -J NUM, --jobs=NUM\n\
             Specifies the number of threads spawned to search files.  By\n\
             default an optimum number of threads is spawned to search files\n\
@@ -12274,8 +12797,8 @@ void help(std::ostream& out)
             Note that Perl pattern matching differs from the default grep POSIX\n\
             pattern matching.\n\
     -p, --no-dereference\n\
-            If -R or -r is specified, no symbolic links are followed, even when\n\
-            they are specified on the command line.\n\
+            If -R or -r is specified, do not follow symbolic links, even when\n\
+            symbolic links are specified on the command line.\n\
     --pager[=COMMAND]\n\
             When output is sent to the terminal, uses COMMAND to page through\n\
             the output.  The default COMMAND is `" DEFAULT_PAGER_COMMAND "'.  Enables --heading\n\
@@ -12301,26 +12824,25 @@ void help(std::ostream& out)
             ALT-] to increase fuzziness and ALT-} to increase context.  Enables\n\
             --heading.  See also options --confirm and --view.\n\
     -q, --quiet, --silent\n\
-            Quiet mode: suppress all output.  ugrep will only search until a\n\
-            match has been found.\n\
+            Quiet mode: suppress all output.  Only search a file until a match\n\
+            has been found.\n\
     -R, --dereference-recursive\n\
-            Recursively read all files under each directory.  Follow all\n\
-            symbolic links, unlike -r.  See also option --sort.\n\
+            Recursively read all files under each directory.  Follow symbolic\n\
+            links to files and directories, unlike -r.\n\
     -r, --recursive\n\
             Recursively read all files under each directory, following symbolic\n\
-            links only if they are specified on the command line.  Note that\n\
-            when no FILE arguments are specified and input is read from a\n\
-            terminal, recursive searches are performed as if -r is specified.\n\
-            See also option --sort.\n\
+            links only if they are on the command line.  Note that when no FILE\n\
+            arguments are specified and input is read from a terminal,\n\
+            recursive searches are performed as if -r is specified.\n\
     --replace=FORMAT\n\
             Replace matching patterns in the output by the specified FORMAT\n\
             with `%' fields.  If -P is specified, FORMAT may include `%1' to\n\
             `%9', `%[NUM]#' and `%[NAME]#' to output group captures.  A `%%'\n\
             outputs `%' and `%~' outputs a newline.  See option --format,\n\
             `ugrep --help format' and `man ugrep' section FORMAT for details.\n\
-    -S, --dereference\n\
-            If -r is specified, all symbolic links are followed, like -R.  The\n\
-            default is not to follow symbolic links to directories.\n\
+    -S, --dereference-files\n\
+            When -r is specified, follow symbolic links to files, but not to\n\
+            directories.  The default is not to follow symbolic links.\n\
     -s, --no-messages\n\
             Silent mode: nonexistent and unreadable files are ignored, i.e.\n\
             their error messages and warnings are suppressed.\n\
@@ -12373,9 +12895,9 @@ void help(std::ostream& out)
             Output directories with matching files in a tree-like format when\n\
             options -c, -l or -L are used.  This option is enabled by --pretty\n\
             when the output is sent to a terminal.\n\
-    -U, --binary\n\
-            Disables Unicode matching for binary file matching, forcing PATTERN\n\
-            to match bytes, not Unicode characters.  For example, -U '\\xa3'\n\
+    -U, --ascii, --binary\n\
+            Disables Unicode matching for ASCII and binary matching.  PATTERN\n\
+            matches bytes, not Unicode characters.  For example, -U '\\xa3'\n\
             matches byte A3 (hex) instead of the Unicode code point U+00A3\n\
             represented by the UTF-8 sequence C2 A3.  See also option --dotall.\n\
     -u, --ungroup\n\
@@ -12446,11 +12968,13 @@ void help(std::ostream& out)
             text.  No whitespace may be given between -Z and its argument.\n\
     -z, --decompress\n\
             Decompress files to search, when compressed.  Archives (.cpio,\n\
-            .pax, .tar and .zip) and compressed archives (e.g. .taz, .tgz,\n\
-            .tpz, .tbz, .tbz2, .tb2, .tz2, .tlz, .txz, .tzst) are searched and\n\
-            matching pathnames of files in archives are output in braces.  If\n\
-            -g, -O, -M, or -t is specified, searches files stored in archives\n\
-            whose filenames match globs, match filename extensions, match file\n\
+            .pax, .tar) and compressed archives (e.g. .zip, .taz, .tgz, .tpz,\n\
+            .tbz, .tbz2, .tb2, .tz2, .tlz, .txz, .tzst) are searched and\n\
+            matching pathnames of files in archives are output in braces.  When\n\
+            used with option --zmax=NUM, searches the contents of compressed\n\
+            files and archives stored within archives up to NUM levels.  If -g,\n\
+            -O, -M, or -t is specified, searches files stored in archives whose\n\
+            filenames match globs, match filename extensions, match file\n\
             signature magic bytes, or match file types, respectively.\n"
 #ifndef HAVE_LIBZ
             "\
@@ -12480,7 +13004,7 @@ void help(std::ostream& out)
     --zmax=NUM\n\
             When used with option -z (--decompress), searches the contents of\n\
             compressed files and archives stored within archives by up to NUM\n\
-            recursive expansions.  The default --zmax=1 only permits searching\n\
+            expansion levels deep.  The default --zmax=1 only permits searching\n\
             uncompressed files stored in cpio, pax, tar and zip archives;\n\
             compressed files and archives are detected as binary files and are\n\
             effectively ignored.  Specify --zmax=2 to search compressed files\n\
@@ -12715,13 +13239,14 @@ Option --stats displays the options and patterns applied to the matching files.\
 \n\
 ";
     }
-    else if (strcmp(what, "globs") == 0)
+    else if (strcmp(what, "glob") == 0 || strcmp(what, "globs") == 0)
     {
       std::cout <<
 "Glob syntax and conventions:\n\
 \n\
-Gitignore-style globbing is performed by -g (--glob), --include, --exclude,\n\
---include-dir, --exclude-dir, --include-from, --exclude-from, --ignore-files.\n\
+Gitignore-style globbing is performed by -g (--glob), --iglob, --include,\n\
+--exclude, --include-dir, --exclude-dir, --include-from, --exclude-from,\n\
+and --ignore-files.\n\
 \n\
  pattern     matches\n\
  ----------  -----------------------------------------------------------\n\
@@ -12735,6 +13260,10 @@ Gitignore-style globbing is performed by -g (--glob), --include, --exclude,\n\
  /**         when at the end of a glob, matches everything after the /\n\
  \\?          a ? or any other character specified after the backslash\n\
 \n\
+A glob pattern starting with a ^ or a ! inverts the matching.  Instead of\n\
+matching a filename or directory name, the directory or file is ignored and\n\
+excluded from the search.\n\
+\n\
 When a glob pattern contains a /, the full pathname is matched.  Otherwise, the\n\
 basename of a file or directory is matched in recursive searches.\n\
 \n\
@@ -12743,7 +13272,29 @@ working directory, not recursively.\n\
 \n\
 When a glob pattern ends with a /, directories are matched instead of files.\n\
 \n\
+Option -O (--file-extension) matches filename extensions or ignores extensions\n\
+when preceeded with a ^ or !.\n\
+\n\
+Option -t (--file-type) matches file types or ignores file types when preceeded\n\
+with a ^ or a !.  Use -tlist to view the list of supported file types with\n\
+corresponding glob patterns.\n\
+\n\
+Opton --ignore-files specifies a file with gitignore-style globs, where the\n\
+default file is .gitignore.  When one ore more ignore files are encountered in\n\
+recursive searches, the search is narrowed accordingly.\n\
+\n\
+Option --iglob performs case-insensitive glob matching with the specified glob\n\
+patterns.\n\
+\n\
+Option --glob-ignore-case performs case-insensitive glob matching in general,\n\
+except with the globs specified in --ignore-files, such as .gitignore.\n\
+\n\
 Option --stats displays the search path globs applied to the matching files.\n\
+\n\
+IMPORTANT:\n\
+\n\
+Always specify glob patterns using quotes to prevent the shell from expanding\n\
+the globs.  For example, use -g \"*foo.*\" or alternatively \"-g*foo.*\".\n\
 \n\
 ";
     }
@@ -12777,9 +13328,9 @@ directory such that files with minimum differences with the specified pattern\n\
 are listed first.  This requires two passes over each input file, which reduces\n\
 performance significantly.\n\
 \n\
-Important:\n\
+IMPORTANT:\n\
 \n\
-Fuzzy search anchors matches at the beginning character or characters of the\n\
+Fuzzy search anchors each pattern match at the beginning character of the\n\
 specified regex pattern.  This significantly improves search performance and\n\
 prevents overmatching.  For example, the regex pattern `[1-9]buzz' begins with\n\
 a nonzero digit at which all matches are anchored.  Replace the beginning of a\n\
