@@ -1,3 +1,10 @@
+ugrep (3.12.6-8) focal; urgency=medium
+
+  * Re-apply "Redirect `ug+` / `ugrep+` scripts" since upstream merged AND reverted.
+  * Create a Github-Actions pipeline to build `ugrep` against all major and bleeding Ubuntu versions
+
+ -- Stavros Ntentos <133706+stdedos@users.noreply.github.com>  Thu, 10 Aug 2023 19:11:18 +0300
+
 ugrep (3.8.0-3) focal; urgency=medium
 
   * Initial release (packaged with debocker/auto-debocker.sh against 'ubuntu:focal')

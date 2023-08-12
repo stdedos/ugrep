@@ -1,0 +1,239 @@
+name: Debian Packaging
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - 'ci/playground/actions-release'
+      - 'main'
+      - 'master'
+
+env:
+  RELEASE_BODY_FILENAME: release-file.txt
+
+
+defaults:
+  run:
+    shell: /bin/bash --noprofile --norc -Eeuxo pipefail {0}
+
+jobs:
+  setup-image:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu_version: [16.04, 18.04, 20.04, 22.04, 'latest', 'rolling', 'devel']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Docker meta
+      id: meta
+      uses: docker/metadata-action@v4
+      with:
+        images: ghcr.io/${{ github.repository }}/build-ubuntu
+        tags: ${{ matrix.ubuntu_version }}
+
+    - name: git_short_ref
+      id: git_short_ref
+      run: |
+        echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        git rev-parse HEAD > .git-sha1
+
+    - name: ppa:git key
+      run: |
+        curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xe1dd270288b4e6030699e45fa1715d88e1df1f24" | gpg -o .github/workflows/0xe1dd270288b4e6030699e45fa1715d88e1df1f24.gpg --dearmor -
+
+    - name: Build and push
+      uses: docker/build-push-action@v4
+      with:
+        build-args: |
+          VERSION=${{ matrix.ubuntu_version }}
+        context: .github/workflows
+        push: true
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        tags: |
+          ${{ steps.meta.outputs.tags }}
+          ${{ steps.meta.outputs.tags }}-${{ steps.git_short_ref.outputs.sha }}
+
+    - name: ugrep-build-sha artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ugrep-build-sha
+        path: |
+          .git-sha1
+
+  build:
+    needs: setup-image
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu_version: [16.04, 18.04, 20.04, 22.04, 'latest', 'rolling', 'devel']
+
+    container:
+      image: ghcr.io/stdedos/ugrep/build-ubuntu:${{ matrix.ubuntu_version }}
+
+    # 16.04 after many hacks, it STILL refuses to work: https://github.com/stdedos/ugrep/actions/runs/5846704831/job/15852204503#step:9:282
+    # 18.04 has a known testing issue: https://github.com/stdedos/ugrep/actions/runs/5842361086/job/15843423208#step:8:432
+    continue-on-error: ${{ contains(fromJSON('["16.04", "18.04", "rolling", "devel"]'), matrix.ubuntu_version) }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Derive Actual Ubuntu Version
+      id: get_os_version
+      run: |
+        case "${{ matrix.ubuntu_version }}" in
+          "latest"|"rolling"|"devel")
+            echo "version=$(lsb_release -rs)" >> $GITHUB_OUTPUT
+          ;;
+          *)
+            echo "version=${{ matrix.ubuntu_version }}" >> $GITHUB_OUTPUT
+          ;;
+        esac
+
+    - name: Compatibility for old Ubuntus (< 20.04)
+      if: contains(fromJSON('["16.04", "18.04"]'), matrix.ubuntu_version)
+      run: |
+        case "${{ matrix.ubuntu_version }}" in
+          16.04)
+            sed -i 's/debhelper-compat (= 12)/debhelper/' debian/control
+            sed -i 's/libzstd-dev,/libzstd1-dev,/' debian/control
+            echo "9" > debian/compat
+
+            # Ubuntu Xenial has only `1.15-4ubuntu1`
+            ln -s /usr/bin/aclocal-1.15 /usr/local/bin/aclocal-1.16
+            ln -s /usr/bin/automake-1.15 /usr/local/bin/automake-1.16
+          ;;
+          18.04)
+            sed -i 's/debhelper-compat (= 12)/debhelper-compat (= 11)/' debian/control
+          ;;
+          *) :;;
+        esac
+
+    - name: Prepare packaging
+      run: |
+        # Get the package version
+        git config --global --add safe.directory /__w/ugrep/ugrep
+        export UGREP_VERSION="$(git describe --tags --abbrev=0 | sed 's/v//g')"
+        echo "UGREP_DESCRIBE=v${UGREP_VERSION}" >> $GITHUB_ENV
+
+        # Package the orig.tar.gz
+        echo
+        git archive HEAD --format=tar.gz -o "../ugrep_${UGREP_VERSION}.orig.tar.gz"
+        ls -dlah ../ugrep*
+        echo
+
+        # Install build dependencies from debian/control
+        apt-get update
+        echo
+
+        # Create a fake dependency package
+        mk-build-deps
+
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ugrep-${{ steps.get_os_version.outputs.version }}-build-deps
+        path: |
+          ugrep-build-deps_*.deb
+
+    - name: Create `latest` GitHub Release
+      if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+      run: |
+        dch --increment "Built by Github actions for ubuntu-$(lsb_release -cs) ($(lsb_release -rs))"
+        dch --release --distribution "$(lsb_release -cs)" ignored
+
+    - name: Build Debian package
+      run: |
+        apt-get install ./ugrep-build-deps_*.deb -y -o Debug::pkgProblemResolver=yes
+        rm --verbose ugrep-build-deps_* || true
+        debuild -us -uc
+
+        cp --verbose ../*.deb .
+        echo "${{ env.UGREP_DESCRIBE }}" >> .git-describe
+
+        ls -lah ..
+
+    - name: Upload deb as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ugrep-${{ steps.get_os_version.outputs.version }}-deb
+        path: |
+          *.deb
+          .git-describe
+          debian/changelog
+        if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Prepare the release details
+      run: |
+        # Function to extract OS and version and rename the file accordingly
+        rename_and_move() {
+          local file="$1"
+          local dir_name="$(dirname "$file")"
+          local version=$(basename "$dir_name" | cut -d'-' -f2)
+          local new_name="$(basename "$file" .deb)-ubuntu_${version}.deb"
+          mv "$file" "./$new_name"
+        }
+        export -f rename_and_move
+
+        find . -type f -name "*build-deps*.deb" -delete
+        find . -type f -name "*.deb" -exec bash -c 'rename_and_move "$0"' {} \;
+        find . -type f -name .git-describe | xargs mv --target-directory=. || true
+        find . -type f -name .git-sha1 | xargs mv --target-directory=. || true
+        find . -type f -name changelog | xargs mv --target-directory=. || true
+        find . -type d | xargs rmdir --ignore-fail-on-non-empty --parents || true
+
+        ls -alhR
+
+        tail -n +3 changelog | sed -n '/^ --/q;p' | sed 's/  //' >| ${{ env.RELEASE_BODY_FILENAME }}
+        echo "Built against $(cat .git-sha1)" >> ${{ env.RELEASE_BODY_FILENAME }}
+
+        echo "UGREP_DESCRIBE=$(cat .git-describe)" >> $GITHUB_ENV
+
+    - name: Create GitHub Release and upload Debian packages
+      if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/ci/playground/actions-release'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: "${{ env.UGREP_DESCRIBE }}"
+        body_path: ${{ env.RELEASE_BODY_FILENAME }}
+        prerelease: ${{ github.ref == 'refs/heads/ci/playground/actions-release' }}
+        fail_on_unmatched_files: true
+        files: |
+          ugrep_*.deb
+
+    - name: Create `latest` GitHub Release
+      if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+      uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        prerelease: true
+        title: "ugrep `latest` build"
+        files: |
+          ugrep_*.deb
