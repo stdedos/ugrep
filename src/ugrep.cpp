@@ -7601,9 +7601,13 @@ void ugrep()
   // reflex::Matcher options
   std::string matcher_options;
 
-  // -Y: permit empty pattern matches
+  // -Y: permit empty pattern matches and match closing ) when no opening ( unless -P and -F
   if (flag_empty)
+  {
+    if (!flag_perl_regexp && !flag_fixed_strings)
+      convert_flags |= reflex::convert_flag::closing;
     matcher_options.push_back('N');
+  }
 
   // -w: match whole words, i.e. make \< and \> match only left side and right side, respectively
   if (flag_word_regexp)
