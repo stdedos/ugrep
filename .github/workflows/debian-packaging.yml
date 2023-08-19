@@ -142,6 +142,10 @@ jobs:
         ls -dlah ../ugrep*
         echo
 
+        # Verify ug+.1 ugrep+.1
+        test "$(grep -cFf man/ug+.1 man/ugrep.1)" -eq "$(( $(wc -l < man/ug+.1) - 1 ))" || >&2 echo "man/ug+.1 has deviated"
+        test "$(grep -cFf man/ugrep+.1 man/ugrep.1)" -eq "$(( $(wc -l < man/ugrep+.1) - 1 ))" || >&2 echo "man/ugrep+.1 has deviated"
+
         # Install build dependencies from debian/control
         apt-get update
         echo

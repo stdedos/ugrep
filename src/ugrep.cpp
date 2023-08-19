@@ -3977,7 +3977,7 @@ bool GrepMaster::steal(GrepWorker *worker)
   auto coworker = workers.begin();
   auto max_worker = coworker;
   size_t max_todo = 0;
-  
+
   for (size_t i = 0; i < threads; ++i)
   {
     if (&*coworker != worker && coworker->jobs.todo > max_todo)
@@ -7907,7 +7907,7 @@ void ugrep()
     edges = pattern.edges();
     words = pattern.words();
     hashes = pattern.hashes();
-    
+
     nodes_time = static_cast<size_t>(pattern.nodes_time());
     edges_time = static_cast<size_t>(pattern.parse_time() + pattern.edges_time());
     words_time = static_cast<size_t>(pattern.words_time());
@@ -13273,9 +13273,9 @@ working directory, not recursively.\n\
 When a glob pattern ends with a /, directories are matched instead of files.\n\
 \n\
 Option -O (--file-extension) matches filename extensions or ignores extensions\n\
-when preceeded with a ^ or !.\n\
+when preceded with a ^ or !.\n\
 \n\
-Option -t (--file-type) matches file types or ignores file types when preceeded\n\
+Option -t (--file-type) matches file types or ignores file types when preceded\n\
 with a ^ or a !.  Use -tlist to view the list of supported file types with\n\
 corresponding glob patterns.\n\
 \n\

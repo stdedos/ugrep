@@ -1,0 +1,1 @@
+extend-diff-ignore = "(^|/)(Makefile\.in|aclocal\.m4|ar-lib|bin/|compile|config\..+|configure|depcomp|install-sh|missing)$"
