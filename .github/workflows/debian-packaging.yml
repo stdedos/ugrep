@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ubuntu_version: [16.04, 18.04, 20.04, 22.04, 'latest', 'rolling', 'devel']
+        ubuntu_version: [20.04, 22.04, 'latest', 'rolling', 'devel']
 
     steps:
     - name: Checkout code
@@ -77,20 +77,33 @@ jobs:
         path: |
           .git-sha1
 
+  sanity-checks:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Sanity Checks
+      run: |
+        head -1 debian/changelog | grep -F "$(git describe --tags --abbrev=0 | sed 's/v//g')"  # Top-line must be properly formatted for a tagged release
+
   build:
-    needs: setup-image
+    needs:
+    - setup-image
+    - sanity-checks
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        ubuntu_version: [16.04, 18.04, 20.04, 22.04, 'latest', 'rolling', 'devel']
+        ubuntu_version: [20.04, 22.04, 'latest', 'rolling', 'devel']
 
     container:
       image: ghcr.io/stdedos/ugrep/build-ubuntu:${{ matrix.ubuntu_version }}
 
-    # 16.04 after many hacks, it STILL refuses to work: https://github.com/stdedos/ugrep/actions/runs/5846704831/job/15852204503#step:9:282
-    # 18.04 has a known testing issue: https://github.com/stdedos/ugrep/actions/runs/5842361086/job/15843423208#step:8:432
-    continue-on-error: ${{ contains(fromJSON('["16.04", "18.04", "rolling", "devel"]'), matrix.ubuntu_version) }}
+    continue-on-error: ${{ contains(fromJSON('["rolling", "devel"]'), matrix.ubuntu_version) }}
 
     steps:
     - name: Checkout code
@@ -110,30 +123,19 @@ jobs:
           ;;
         esac
 
-    - name: Compatibility for old Ubuntus (< 20.04)
-      if: contains(fromJSON('["16.04", "18.04"]'), matrix.ubuntu_version)
-      run: |
-        case "${{ matrix.ubuntu_version }}" in
-          16.04)
-            sed -i 's/debhelper-compat (= 12)/debhelper/' debian/control
-            sed -i 's/libzstd-dev,/libzstd1-dev,/' debian/control
-            echo "9" > debian/compat
-
-            # Ubuntu Xenial has only `1.15-4ubuntu1`
-            ln -s /usr/bin/aclocal-1.15 /usr/local/bin/aclocal-1.16
-            ln -s /usr/bin/automake-1.15 /usr/local/bin/automake-1.16
-          ;;
-          18.04)
-            sed -i 's/debhelper-compat (= 12)/debhelper-compat (= 11)/' debian/control
-          ;;
-          *) :;;
-        esac
-
     - name: Prepare packaging
       run: |
-        # Get the package version
         git config --global --add safe.directory /__w/ugrep/ugrep
-        export UGREP_VERSION="$(git describe --tags --abbrev=0 | sed 's/v//g')"
+
+        # Get the package version ... except latest
+        case "${{ github.ref }}" in
+          refs/heads/main) git tag -d latest;;
+          refs/heads/master) git tag -d latest;;
+          *) ;;
+        esac
+
+        # Get the package version
+        export UGREP_VERSION="$(git describe --tags --abbrev=0 | sed 's/v//g' | cut -f1 -d-)"
         echo "UGREP_DESCRIBE=v${UGREP_VERSION}" >> $GITHUB_ENV
 
         # Package the orig.tar.gz
