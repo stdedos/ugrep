@@ -1,3 +1,13 @@
+ugrep (4.0.1-15) focal; urgency=medium
+
+  * Update upstream version: https://github.com/Genivia/ugrep/tree/v4.0.1
+  * Export sanity-checks as bash scripts
+    * With a small POC testing framework
+    * With `.pre-commit-config.yaml`
+      (Only on files that are "not likely" to be updated upstream)
+
+ -- Stavros Ntentos <133706+stdedos@users.noreply.github.com>  Mon, 21 Aug 2023 14:24:30 +0300
+
 ugrep (3.12.7-11) focal; urgency=medium
 
   * Update upstream version: https://github.com/Genivia/ugrep/tree/v3.12.7
