@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -eu
+
+EXIT=0
+
+cd "${TOP_LEVEL:-.}"
+
+BASE=master
+UPSTREAM=upstream/master
+
+merge_base=$(git merge-base "${BASE}" "${UPSTREAM}")
+
+include_pattern="$(awk -F': ' '/^files: /{ print $2 }' "${TOP_LEVEL}/.pre-commit-config.yaml" | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/")"
+exclude_pattern="$(awk -F': ' '/^exclude: /{ print $2 }' "${TOP_LEVEL}/.pre-commit-config.yaml" | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/")"
+
+while IFS= read -r file; do
+    if grep -qE "${include_pattern}" <<< "${file}"; then
+        # The file matches the inclusion regex, so it's okay
+        continue
+    elif [ -n "${exclude_pattern}" ] && grep -qE "${exclude_pattern}" <<< "${file}"; then
+        # The file matches the exclusion regex, so it's also okay
+        continue
+    else
+        >&2 echo "* '$file' does not match the given regex and is not excluded."
+        EXIT="$(( EXIT + 1 ))"
+    fi
+done < <(git diff --name-only "${merge_base}" "${BASE}")
+
+exit "${EXIT}"

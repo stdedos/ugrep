@@ -1,0 +1,17 @@
+files: '^(debian/|.github/|.pre-commit-config.yaml|.gitignore|man/\w+\+\.1|src/bin/)'
+exclude: '^(Makefile.am|src/ugrep.cpp)$'
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.4.0
+  hooks:
+  - id: check-yaml
+  - id: end-of-file-fixer
+  - id: trailing-whitespace
+- repo: local
+  hooks:
+  - id: sanity-checks
+    name: sanity-checks
+    always_run: true
+    pass_filenames: false
+    language: system
+    entry: .github/utils/run-tests.sh

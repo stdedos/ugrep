@@ -1,0 +1,26 @@
+#!/bin/sh
+
+set -eu
+
+RC=0
+
+cd "${TOP_LEVEL:-.}"
+
+ACTUAL="$(grep -cFf man/ug+.1    man/ugrep.1)"
+EXPECTED="$(wc -l < man/ug+.1 )"
+if ! [ "${ACTUAL}" -eq "$(( EXPECTED - 1 ))" ] ; then
+	>&2 echo "man/ug+.1 has deviated"
+	RC=$(( RC + 1 ))
+fi
+
+ACTUAL="$(grep -cFf man/ugrep+.1    man/ugrep.1)"
+EXPECTED="$(wc -l < man/ugrep+.1 )"
+if ! [ "${ACTUAL}" -eq "$(( EXPECTED - 1 ))" ] ; then
+	>&2 echo "man/ugrep+.1 has deviated"
+	RC=$(( RC + 1 ))
+fi
+
+# Rationale: EXPECTED - 1:
+# `ugrep(1).` line does not exist in `man ugrep`
+
+exit "${RC}"

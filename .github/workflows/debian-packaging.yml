@@ -88,7 +88,7 @@ jobs:
 
     - name: Sanity Checks
       run: |
-        head -1 debian/changelog | grep -F "$(git describe --tags --abbrev=0 | sed 's/v//g')"  # Top-line must be properly formatted for a tagged release
+        .github/utils/tests/is-changelog-valid
 
   build:
     needs:
@@ -145,8 +145,7 @@ jobs:
         echo
 
         # Verify ug+.1 ugrep+.1
-        test "$(grep -cFf man/ug+.1 man/ugrep.1)" -eq "$(( $(wc -l < man/ug+.1) - 1 ))" || >&2 echo "man/ug+.1 has deviated"
-        test "$(grep -cFf man/ugrep+.1 man/ugrep.1)" -eq "$(( $(wc -l < man/ugrep+.1) - 1 ))" || >&2 echo "man/ugrep+.1 has deviated"
+        .github/utils/tests/verify-ugrep-plus-man-page
 
         # Install build dependencies from debian/control
         apt-get update
