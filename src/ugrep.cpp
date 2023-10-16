@@ -12913,6 +12913,7 @@ void usage(const char *message, const char *arg, const char *valid)
 // display usage/help information and exit
 void help(std::ostream& out)
 {
+  out << "ugrep " UGREP_VERSION " " PLATFORM "\n\n";
   out <<
     "Usage: ugrep [OPTIONS] [PATTERN] [-f FILE] [-e PATTERN] [FILE ...]\n\n\
     -A NUM, --after-context=NUM\n\
