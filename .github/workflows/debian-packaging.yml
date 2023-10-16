@@ -87,8 +87,7 @@ jobs:
         fetch-depth: 0
 
     - name: Sanity Checks
-      run: |
-        .github/utils/tests/is-changelog-valid
+      run: bash -x .github/utils/tests/is-changelog-valid
 
   build:
     needs:

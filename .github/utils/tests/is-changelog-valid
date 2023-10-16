@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 cd "${TOP_LEVEL:-.}"
 
-GIT_VERSION="$(git describe --tags --abbrev=0 | sed 's/v//g')"
+GIT_VERSION="$(git describe --tags --abbrev=0 | sed 's/v//g' | cut -d- -f1)"
 if ! head -1 debian/changelog | grep -qF "${GIT_VERSION}" ; then
 	# shellcheck disable=SC2016 # Intentional
 	>&2 printf '`%s` (%s) does not contain "%s" (%s)!\n' "head -1 debian/changelog" "$(head -1 debian/changelog || true)" "${GIT_VERSION}" "$(git describe --tags)"
