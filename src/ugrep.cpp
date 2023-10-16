@@ -4764,6 +4764,14 @@ void options(std::list<std::pair<CNF::PATTERN,const char*>>& pattern_args, int a
 {
   bool options = true;
 
+  if (argc == 2 && std::string(argv[1]) == "-v") {
+    version();
+  }
+
+  if (argc == 2 && std::string(argv[1]) == "-h") {
+    help(NULL);
+  }
+
   for (int i = 1; i < argc; ++i)
   {
     const char *arg = argv[i];
