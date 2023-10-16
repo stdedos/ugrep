@@ -95,7 +95,9 @@ class Pattern {
       opc_(NULL),
       nop_(0),
       fsm_(NULL)
-  { }
+  {
+    init(NULL);
+  }
   /// Construct a pattern object given a regex string.
   explicit Pattern(
       const char *regex,
@@ -613,12 +615,14 @@ class Pattern {
     {
       clear();
     }
-    /// delete the tree DFA.
+    /// delete the tree DFA and reset to the intial state.
     void clear()
     {
       for (List::iterator i = list.begin(); i != list.end(); ++i)
         delete[] *i;
       list.clear();
+      tree = NULL;
+      next = ALLOC;
     }
     /// return the root of the tree.
     Node *root()
@@ -707,12 +711,13 @@ class Pattern {
     {
       clear();
     }
-    /// delete DFA
+    /// delete DFA and reset to initial state.
     void clear()
     {
       for (List::iterator i = list.begin(); i != list.end(); ++i)
         delete[] *i;
       list.clear();
+      next = ALLOC;
     }
 #ifdef WITH_TREE_DFA
     /// new DFA state.
@@ -820,19 +825,23 @@ class Pattern {
   /// Meta characters.
   enum Meta {
     META_MIN = 0x100,
+    // word boundaries
     META_NWB = 0x101, ///< non-word boundary at begin `\Bx`
     META_NWE = 0x102, ///< non-word boundary at end   `x\B`
     META_BWB = 0x103, ///< begin of word at begin     `\<x` where \bx=(\<|\>)x
     META_EWB = 0x104, ///< end of word at begin       `\>x`
     META_BWE = 0x105, ///< begin of word at end       `x\<` where x\b=x(\<|\>)
     META_EWE = 0x106, ///< end of word at end         `x\>`
+    // line and buffer boundaries
     META_BOL = 0x107, ///< begin of line              `^`
     META_EOL = 0x108, ///< end of line                `$`
     META_BOB = 0x109, ///< begin of buffer            `\A`
     META_EOB = 0x10A, ///< end of buffer              `\Z`
+    // indent boundaries
     META_UND = 0x10B, ///< undent boundary            `\k`
     META_IND = 0x10C, ///< indent boundary            `\i` (must be one but the largest META code)
     META_DED = 0x10D, ///< dedent boundary            `\j` (must be the largest META code)
+    // end of boundaries
     META_MAX          ///< max meta characters
   };
   /// Initialize the pattern at construction.
@@ -1142,7 +1151,7 @@ class Pattern {
   {
     return ((h << 3) ^ b) & (Const::HASH - 1);
   }
-  /// file indexing hash 0 <= indexhash() < 65536, must be additive: indexhash(x,b+1) = indexhash(x,b)+1 modulo 2^16
+  /// file indexing hash 0 <= indexhash() < 65536, must be additive: indexhash(x,b+1) = indexhash(x,b)+1 modulo 2^16.
   static inline Hash indexhash(Hash h, uint8_t b)
   {
     return (h << 6) - h - h - h + b;

@@ -1,7 +1,7 @@
-AC_INIT([ugrep],[3.12])
+AC_INIT([ugrep],[4.3])
 AM_INIT_AUTOMAKE([foreign])
 AC_CONFIG_HEADERS([config.h])
-AC_COPYRIGHT([Copyright (C) 2019-2022 Robert van Engelen, Genivia Inc.])
+AC_COPYRIGHT([Copyright (C) 2019-2023 Robert van Engelen, Genivia Inc.])
 
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -160,7 +160,7 @@ fi
 AC_ARG_ENABLE(hidden,
   [AS_HELP_STRING([--enable-hidden],
                   [enable searching hidden files and directories by default unless explicitly disabled with ugrep flag --no-hidden])],
-  [with_hidden="yes"],
+  [with_hidden="$enable_hidden"],
   [with_hidden="no"])
 AC_MSG_CHECKING(for --enable-hidden)
 if test "x$with_hidden" = "xno"; then

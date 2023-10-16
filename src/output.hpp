@@ -44,6 +44,7 @@
 #include <list>
 #include <mutex>
 #include <condition_variable>
+#include <cstdint>
 
 // max hexadecimal columns of bytes per line = 8*8
 #ifndef MAX_HEX_COLUMNS
@@ -380,9 +381,9 @@ class Output {
   {
     const char *t = s;
     while (n-- > 0 && k-- > 0)
-      while ((*++s & 0xc0) == 0x80 && n-- > 0)
-        continue;
-    str(t, t - s);
+      while (static_cast<uint8_t>(*++s & 0xc0) == 0x80 && n > 0)
+        --n;
+    str(t, s - t);
   }
 
   // output a UTF-8 multibyte string s (\0-terminated) for up to k Unicode characters
@@ -390,9 +391,9 @@ class Output {
   {
     const char *t = s;
     while (*s != '\0' && k-- > 0)
-      while ((*++s & 0xc0) == 0x80)
+      while (static_cast<uint8_t>(*++s & 0xc0) == 0x80)
         continue;
-    str(t, t - s);
+    str(t, s - t);
   }
 
   // output a URI-encoded string s
@@ -553,7 +554,7 @@ class Output {
     chr('0' + (b & 7));
   }
 
-  // output a newline (platform-specific conditional "\r\n" or "\n"); flush if --line-buffered.
+  // output a newline (platform-specific conditional "\r\n" or "\n"); flush if --line-buffered
   inline void nl(bool lf_only = false)
   {
     if (!lf_only)
@@ -742,8 +743,8 @@ class Output {
   // output format with option --format-begin and --format-end
   void format(const char *format, size_t matches);
 
-  // output formatted match with options --format, --format-open, --format-close
-  void format(const char *format, const char *pathname, const std::string& partname, size_t matches, size_t *matching, reflex::AbstractMatcher *matcher, bool& heading, bool body, bool next);
+  // output formatted match with options --format, --format-open, --format-close, returns false when nothing is output
+  bool format(const char *format, const char *pathname, const std::string& partname, size_t matches, size_t *matching, reflex::AbstractMatcher *matcher, bool& heading, bool body, bool next);
 
   // output formatted inverted match with options -v --format, --format-open, --format-close
   void format_invert(const char *format, const char *pathname, const std::string& partname, size_t matches, size_t lineno, size_t offset, const char *ptr, size_t size, bool& heading, bool next);

@@ -1,15 +1,15 @@
 [![build status][ci-image]][ci-url] [![license][bsd-3-image]][bsd-3-url]
 
-New ugrep 4.0
+New ugrep 4.3
 -------------
 
-Ugrep is like grep, but faster, user-friendly, and equipped with must-have features.  Ugrep's speed and features beat grep, ripgrep, silver searcher, ack, sift, etc.
+Ugrep is like grep, but much faster, user-friendly, and equipped with a ton of new features.  Ugrep's features and speed beat GNU grep, Silver Searcher, ack, sift, and ripgrep in [nearly all benchmarks](https://github.com/Genivia/ugrep-benchmarks).
 
-New faster ugrep 4.0 and new **ugrep-indexer** tool to speed up search with file system indexing.  Visit [GitHub ugrep-indexer](https://github.com/Genivia/ugrep-indexer) for details.
+New faster ugrep 4.3 and new **ugrep-indexer** tool to speed up search with file system indexing.  Visit [GitHub ugrep-indexer](https://github.com/Genivia/ugrep-indexer) for details.
 
 See [how to install ugrep](#install) on your system.  Ugrep is always free.
 
-The ugrep tools include the following powerful commands:
+The ugrep tools include the following commands:
 
 - **ug** for interactive use with a .ugrep configuration file with your preferences located in the working directory or home directory (run 'ug --save-config' to create a .ugrep file you can edit)
 - **ugrep** for batch use
@@ -23,12 +23,12 @@ The ugrep tools include the following powerful commands:
 Development roadmap
 -------------------
 
-- my highest priority is testing and quality assurance to continue to make sure ugrep has no bugs and is reliable
+- my highest priority is quality assurance to continue to make sure ugrep has no bugs and is reliable
+- make ugrep even faster and report on progress, see [my latest article](https://www.genivia.com/ugrep.html) and planned enhancements [#288](https://github.com/Genivia/ugrep/issues/288)
 - listen to users to continue to add new and updated features
-- improve the interactive TUI with a split screen
-- make ugrep even faster and report on progress, see [my latest article](https://www.genivia.com/ugrep.html)
-- share [reproducible performance data](https://github.com/Genivia/ugrep-benchmarks) with the community
-- add file indexing to speed up cold search performance, see [ugrep-indexer](https://github.com/Genivia/ugrep-indexer)
+- further improve the interactive TUI with regex syntax highlighting
+- share [reproducible performance results](https://github.com/Genivia/ugrep-benchmarks) with the community
+- file indexing to speed up cold search performance, see [ugrep-indexer](https://github.com/Genivia/ugrep-indexer)
 
 Overview
 --------
@@ -36,6 +36,8 @@ Overview
 Why use ugrep?
 
 - Compatible with the GNU grep command options and output, but faster and with a lot more features
+
+- One of the [fastest grep tools](https://github.com/Genivia/ugrep-benchmarks)
 
 - Matches Unicode patterns by default and automatically searches UTF-8, UTF-16 and UTF-32 encoded files
 
@@ -49,13 +51,13 @@ Why use ugrep?
 
       ug PATTERN ...                         ugrep --config PATTERN ...
 
-  💡 `ug --save-config ...options-you-want-to-save...` saves a .ugrep config file in the working directory.
+  💡 `ug --save-config ...options-you-want-to-save...` saves a .ugrep config file in the working directory so that the next time you run `ug` there it uses these options.  Do this in your home directory to save a .ugrep config file with options you generally want to use.
 
 - Interactive [query TUI](#query), press F1 or CTRL-Z for help and TAB/SHIFT-TAB to navigate to dirs and files
 
       ug -Q                                  ug -Q -e PATTERN    
 
-  💡 `-Q` replaces `PATTERN` on the command line to let you enter patterns interactively.  Specify `-e PATTERN` to search and edit the `PATTERN` in the TUI.  Best is `-Qle PATTERN` to view a list of matching files.
+  💡 `-Q` replaces `PATTERN` on the command line to let you enter patterns interactively.  Specify `-e PATTERN` to search and edit the `PATTERN` in the TUI, for example `-Qle PATTERN` shows a list of matching files.  Then use ALT+letter keys to toggle short "letter options" on/off, for example ALT-n (option `-n`) to show/hide line numbers.  For quick responses `ug -Q=1` won't wait 0.5s for you to complete typing (but may run up the CPU).
 
 - Search with Google-like [Boolean query patterns](#bool) using `--bool` patterns with `AND` (or just space), `OR` (or a bar `|`), `NOT` (or a dash `-`), using quotes to match exactly, and grouping with `( )`; or with options `-e` (as an "or"), `--and`, `--andnot`, and `--not` regex patterns
 
@@ -78,6 +80,9 @@ Why use ugrep?
 - Search pdf, doc, docx, e-book, and more with `ug+` [using filters](#filter) associated with filename extensions:
 
       ug+ PATTERN ...
+
+  or specify `--filter` with a file type to use a filter utility:
+
       ug --filter='pdf:pdftotext % -' PATTERN ...
       ug --filter='doc:antiword %' PATTERN ...
       ug --filter='odt,docx,epub,rtf:pandoc --wrap=preserve -t plain % -o -' PATTERN ...
@@ -96,7 +101,7 @@ Why use ugrep?
 
 - Fzf-like search with regex (or fixed strings with `-F`), fuzzy matching with up to 4 extra characters with `-Z+4` and words only with `-w`, using `--files --bool` for file-wide Boolean searches
 
-      ug -Q1 --files --bool -l -w -Z+4 --sort=best
+      ug -Q --files --bool -l -w -Z+4 --sort=best
 
   💡 `-l` lists the matching files in the TUI, press `TAB` then `ALT-y` to view a file, `SHIFT-TAB` and `Alt-l` to go back to view the list of matching files ordered by best match
 
@@ -128,9 +133,13 @@ Why use ugrep?
 
       ug -. PATTERN ...                      ug -g'.*,.*/' PATTERN ...
 
+  💡 specify `hidden` in your .ugrep to always search hidden files with `ug`.
+
 - Exclude files specified by [.gitignore](#ignore) etc.
 
       ug --ignore-files PATTERN ...          ug --ignore-files=.ignore PATTERN ...
+
+  💡 specify `ignore-files` in your .ugrep to always ignore them with `ug`.  Add additional `ignore-files=...` as desired.
 
 - Search patterns excluding [negative patterns](#not) ("match this but not that")
 
@@ -153,7 +162,7 @@ Why use ugrep?
       ug --csv PATTERN ...                   ug --json PATTERN ...
       ug --xml PATTERN ...                   ug --format='file=%f line=%n match=%O%~' PATTERN ...
 
-  💡 `ug --help format` displays help on format `%` fields.
+  💡 `ug --help format` displays help on format `%` fields for customized output.
 
 - Search with PCRE's Perl-compatible regex patterns and display or replace [subpattern matches](#replace)
 
@@ -232,11 +241,15 @@ Table of contents
 How to install
 --------------
 
-### Homebrew for MacOS (and Linux)
+### MacOS
 
-Install the latest ugrep commands with [Homebrew](https://brew.sh):
+Install the latest ugrep with [Homebrew](https://brew.sh):
 
     $ brew install ugrep
+
+or install with [MacPorts](https://www.macports.org):
+
+    $ sudo port install ugrep
 
 This installs the `ugrep` and `ug` commands, where `ug` is the same as `ugrep`
 but also loads the configuration file .ugrep when present in the working
@@ -472,123 +485,10 @@ significant runtime overhead and should not be used for the final build.
 Performance comparisons
 -----------------------
 
-For an up-to-date comprehensive performance comparison, please see the
+For an up-to-date performance comparison of the latest ugrep, please see the
 [ugrep performance benchmarks](https://github.com/Genivia/ugrep-benchmarks).
-
-Below is a two-year old performance comparison when ugrep was first released
-with performance enhancements.  This old comparison is getting outdated.
-
-Performance comparisons should represent what users can expect the performance
-to be in practice.  There should not be any shenanigans to trick the system to
-perform more optimally or to degrade an important aspect of the search to make
-one grep tool look better than another.
-
-**ugrep** is a no-nonsense fast search tool that utilizes a worker pool of
-threads with clever lock-free job queue stealing for optimized load balancing.
-A new hashing technique is used to identify possible matches to speed up
-multi-pattern matches.  In addition, regex matching is optimized with AVX/SSE
-and ARM NEON/AArch64 instructions.  Compressed files are decompressed
-concurrently while searching to further increase performance.  Asynchronous IO
-is implemented for efficient input and output.
-
-**ugrep** performs very well overall and particularly well when searching
-compressed files and archives.  This means that at its core, the search
-engine's performance of ugrep excellent if not the best among grep tools
-available.
-
-### Benchmarks
-
-The following benchmark tests span a range of practical use cases:
-
-Test | Command                                                          | Description
----- | ---------------------------------------------------------------- | -----------------------------------------------------
-T1   | `GREP -c quartz enwik8`                                          | count "quartz" in a 100MB file (word with low frequency letters)
-T2   | `GREP -c sternness enwik8`                                       | count "sternness" in a 100MB file (word with high frequency letters)
-T3   | `GREP -c 'Sherlock Holmes' en.txt`                               | count "Sherlock Holmes" in a huge [13GB decompressed file](http://opus.nlpl.eu/download.php?f=OpenSubtitles/v2018/mono/OpenSubtitles.raw.en.gz)
-T4   | `GREP -cw -e char -e int -e long -e size_t -e void big.cpp`      | count 5 short words in a 35MB C++ source code file
-T5   | `GREP -Eon 'serialize_[a-zA-Z0-9_]+Type' big.cpp`                | search and display C++ serialization functions in a 35MB source code file
-T6   | `GREP -Fon -f words1+1000 enwik8`                                | search 1000 words of length 1 or longer in a 100MB Wikipedia file
-T7   | `GREP -Fon -f words2+1000 enwik8`                                | search 1000 words of length 2 or longer in a 100MB Wikipedia file
-T8   | `GREP -Fon -f words4+1000 enwik8`                                | search 1000 words of length 4 or longer in a 100MB Wikipedia file
-T9   | `GREP -Fon -f words8+1000 enwik8`                                | search 1000 words of length 8 or longer in a 100MB Wikipedia file
-T10  | `GREP -ro '#[[:space:]]*include[[:space:]]+"[^"]+"' -Oh,hpp,cpp` | multi-threaded recursive search of `#include "..."` in the directory tree from the Qt 5.9.2 root, restricted to `.h`, `.hpp`, and `.cpp` files
-T11  | `GREP -ro '#[[:space:]]*include[[:space:]]+"[^"]+"' -Oh,hpp,cpp` | same as T10 but single-threaded
-T12  | `GREP -z -Fc word word*.gz`                                      | count `word` in 6 compressed files of 1MB to 3MB each
-
-Note: T10 and T11 use `ugrep` option `-Oh,hpp,cpp` to restrict the search to
-files with extensions `.h`, `.hpp`, and `.cpp`, which is formulated with
-GNU/BSD/PCRGE grep as `--include='*.h' --include='*.hpp' --include='*.cpp'`,
-with silver searcher as `-G '.*\.(h|hpp|cpp)'` requiring `--search-binary` to
-search compressed files (a bug), and with ripgrep as `--glob='*.h'
---glob='*.hpp' --glob='*.cpp'`.
-
-The corpora used in the tests are available for
-[download](https://www.genivia.com/files/corpora.zip).
-
-### Performance results
-
-The following performance tests were conducted with a new and common MacBook
-Pro using clang 12.0.0 -O2 on a 2.9 GHz Intel Core i7, 16 GB 2133 MHz LPDDR3
-MacOS 10.15.7 machine with the grep tools listed in the table installed (e.g.
-MacOS BSD grep 2.5.1).  The best times of 30 runs is shown under minimal
-machine load.  When comparing tools, the same match counts were produced.
-These results are reproducible on similar machines.
-
-Results are shown in real time (wall clock time) seconds elapsed.  Best times
-are shown in **boldface** and *n/a* means that the running time exceeded 1
-minute or the selected options are not supported (T12: option `-z`) or the
-input file is too large (T3: 13GB file) resulting in an error.
-
-GREP            | T1       | T2       | T3       | T4       | T5       | T6       | T7       | T8       | T9       | T10      | T11      | T12      |
---------------- | -------- | -------- | -------- | -------- | -------- | -------- | -------- | -------- | -------- | -------- | -------- | -------- |
-ugrep           | **0.02** | **0.03** | **6.05** | **0.06** | **0.02** | **0.92** | **0.86** | **0.74** | **0.23** | **0.10** | **0.19** | **0.02** |
-hyperscan grep  | 0.09     | 0.10     | **4.35** | 0.11     | 0.04     | 7.78     | 3.39     | 1.41     | 1.17     | *n/a*    | *n/a*    | *n/a*    |
-ripgrep         | 0.06     | 0.10     | 7.50     | 0.19     | 0.06     | 2.20     | 2.07     | 2.01     | 2.14     | 0.12     | 0.36     | 0.03     |
-silver searcher | 0.10     | 0.11     | *n/a*    | 0.16     | 0.21     | *n/a*    | *n/a*    | *n/a*    | *n/a*    | 0.45     | 0.32     | 0.09     |
-GNU grep 3.3    | 0.08     | 0.15     | 11.21    | 0.18     | 0.16     | 2.70     | 2.64     | 2.42     | 2.26     | *n/a*    | 0.26     | *n/a*    |
-PCREGREP 8.42   | 0.17     | 0.17     | *n/a*    | 0.26     | 0.08     | *n/a*    | *n/a*    | *n/a*    | *n/a*    | *n/a*    | 2.37     | *n/a*    |
-BSD grep 2.5.1  | 0.81     | 1.60     | *n/a*    | 1.85     | 0.83     | *n/a*    | *n/a*    | *n/a*    | *n/a*    | *n/a*    | 3.35     | 0.60     |
-
-Note T3: [Hyperscan simplegrep](https://github.com/intel/hyperscan/tree/master/examples)
-was compiled with optimizations enabled.  Hyperscan results for T3 are somewhat
-better than ugrep as expected because hyperscan simplegrep has one advantage
-here: it does not maintain line numbers and other line-related information.  By
-contrast, line information should be tracked (as in ugrep) to determine if
-matches are on the same line or not, as required by option `-c`.  Hyperscan
-simplegrep returns more matches than other greps due to its "all matches
-reported" pattern matching behavior.
-
-Note T4-T9: Hyperscan simplegrep does not support command line options.  Option
-`-w` was emulated using the pattern `\b(char|int|long|size_t|void)\b`.  Option
-`-f` was emulated as follows:
-
-    paste -d'|' -s words1+1000 > pattern.txt
-    /usr/bin/time ./simplegrep `cat pattern.txt` enwik8 | ./null
-
-Note T10+T11: [silver searcher 2.2.0](https://github.com/ggreer/the_silver_searcher)
-runs slower with multiple threads (T10 0.45s) than single-threaded (T11 0.32s),
-which was reported as an issue to the maintainers.
-
-Note: ugrep option `-c` does not shortcut the search by skipping over the rest
-of the line after a first match, by contrast to other grep to speed up
-matching.  The reason is that ugrep supports multi-line matches by default,
-which means that the remainder of the line should always be searched to produce
-accurate results.
-
-Output is sent to a `null` utility to eliminate terminal display overhead
-(`> /dev/null` cannot be used as some greps detect it to remove all output).
-The `null` utility source code:
-
-    #include <sys/types.h>
-    #include <sys/uio.h>
-    #include <unistd.h>
-    int main() { char buf[65536]; while (read(0, buf, 65536) > 0) continue; }
-
-Performance results may depend on warm/cold runs, compilers, libraries,
-the OS, the CPU type, and file system latencies.  However, comparable
-competitive results were obtained on many other types of machines.
-
-🔝 [Back to table of contents](#toc)
+Ugrep is faster than GNU grep, Silver Searcher, ack, sift.  Ugrep's speed beats
+ripgrep in most benchmarks.
 
 <a name="vim"/>
 
@@ -1062,7 +962,7 @@ includes header files when we want to only search `.c` and `.cpp` files.
 We can also skip files and directories from being searched that are defined in
 `.gitignore`.  To do so we use `--ignore-files` to exclude any files and
 directories from recursive searches that match the globs in `.gitignore`, when
-one ore more`.gitignore` files are found:
+one or more `.gitignore` files are found:
 
     ug -R -tc++ --ignore-files -f c++/defines
 
@@ -1222,26 +1122,30 @@ The configuration is written to standard output when `FILE` is a `-`.
 ### Interactive search with -Q
 
     -Q[=DELAY], --query[=DELAY]
-            Query mode: user interface to perform interactive searches.  This
-            mode requires an ANSI capable terminal.  An optional DELAY argument
-            may be specified to reduce or increase the response time to execute
+            Query mode: start a TUI to perform interactive searches.  This mode
+            requires an ANSI capable terminal.  An optional DELAY argument may
+            be specified to reduce or increase the response time to execute
             searches after the last key press, in increments of 100ms, where
-            the default is 5 (0.5s delay).  No whitespace may be given between
+            the default is 3 (300ms delay).  No whitespace may be given between
             -Q and its argument DELAY.  Initial patterns may be specified with
             -e PATTERN, i.e. a PATTERN argument requires option -e.  Press F1
             or CTRL-Z to view the help screen.  Press F2 or CTRL-Y to invoke a
             command to view or edit the file shown at the top of the screen.
             The command can be specified with option --view, or defaults to
-            environment variable PAGER if defined, or EDITOR.  Press Tab and
+            environment variable PAGER when defined, or EDITOR.  Press Tab and
             Shift-Tab to navigate directories and to select a file to search.
             Press Enter to select lines to output.  Press ALT-l for option -l
             to list files, ALT-n for -n, etc.  Non-option commands include
-            ALT-] to increase fuzziness and ALT-} to increase context.  Enables
-            --heading.  See also options --confirm and --view.
+            ALT-] to increase context.  See also options --confirm, --delay,
+            --split and --view.
     --no-confirm
-            Do not confirm actions in -Q query mode.  The default is confirm.
+            Do not confirm actions in -Q query TUI.  The default is confirm.
+    --delay=DELAY
+            Set the default -Q key response delay.  Default is 3 for 300ms.
+    --split
+            Split the -Q query TUI screen on startup.
     --view[=COMMAND]
-            Use COMMAND to view/edit a file in query mode when pressing CTRL-Y.
+            Use COMMAND to view/edit a file in -Q query TUI by pressing CTRL-Y.
 
 This option starts a user interface to enter search patterns interactively:
 - Press F1 or CTRL-Z to view a help screen and to enable or disable options.
@@ -1262,6 +1166,8 @@ This option starts a user interface to enter search patterns interactively:
   When the `--glob=` prompt is shown, a comma-separated list of gitignore-style
   glob patterns may be entered.  Presssing ESC returns control to the pattern
   prompt.
+- Press CTRL-T to split the TUI screen to preview a file in the bottom pane.
+- Press CTRL-Y to view a file with a pager specified with `--view`.
 - Press Enter to switch to selection mode to select lines to output when ugrep
   exits.  Normally, ugrep in query mode does not output any results unless
   results are selected.  While in selection mode, select or deselect lines with
@@ -1274,7 +1180,7 @@ This option starts a user interface to enter search patterns interactively:
 - Press TAB to chdir one level down into the directory of the file listed
   or viewed at the top of the screen.  If no directory exists, the file itself
   is selected to search.  Press Shift-TAB to go back up one level.
-- Press CTRL-T to toggle colors on and off.  Normally ugrep in query mode uses
+- Press CTRL-] to toggle colors on and off.  Normally ugrep in query mode uses
   colors and other markup to highlight results.  When colors are turned off,
   selected results are also not colored in the output produced by ugrep when
   ugrep exits.  When colors are turned on (the default), selected results are
@@ -1296,41 +1202,42 @@ This option starts a user interface to enter search patterns interactively:
 
 Query TUI key mapping:
 
-key(s)                  | function
------------------------ | -------------------------------------------------
-`Alt-key`               | toggle ugrep command-line option corresponding to `key`
-`Alt-/`xxxx`/`          | insert Unicode hex code point U+xxxx
-`Esc` `Ctrl-[` `Ctrl-C` | go back or exit
-`Ctrl-Q`                | quick exit and output the results selected in selection mode
-`Tab`                   | chdir to the directory of the file shown at the top of the screen or select file
-`Shift-Tab`             | chdir one level up or deselect file
-`Enter`                 | enter selection mode and toggle selected lines to output on exit
-`Up` `Ctrl-P`           | move up
-`Down` `Ctrl-N`         | move down
-`Left` `Ctrl-B`         | move left
-`Right` `Ctrl-F`        | move right
-`PgUp` `Ctrl-G`         | move display up by a page
-`PgDn` `Ctrl-D`         | move display down by a page
-`Alt-Up`                | move display up by 1/2 page (MacOS `Shift-Up`)
-`Alt-Down`              | move display down by 1/2 page (MacOS `Shift-Down`)
-`Alt-Left`              | move display left by 1/2 page (MacOS `Shift-Left`)
-`Alt-Right`             | move display right by 1/2 page (MacOS `Shift-Right`)
-`Home` `Ctrl-A`         | move cursor to the beginning of the line
-`End` `Ctrl-E`          | move cursor to the end of the line
-`Ctrl-K`                | delete after cursor
-`Ctrl-L`                | refresh screen
-`Ctrl-O`+`key`          | toggle ugrep command-line option corresponding to `key`, same as `Alt-key`
-`Ctrl-R` `F4`           | jump to bookmark
-`Ctrl-S`                | scroll to the next file
-`Ctrl-T`                | toggle colors on/off
-`Ctrl-U`                | delete before cursor
-`Ctrl-V`                | verbatim character
-`Ctrl-W`                | scroll back one file
-`Ctrl-X` `F3`           | set bookmark
-`Ctrl-Y` `F2`           | edit file shown at the top of the screen or under the cursor
-`Ctrl-Z` `F1`           | view help and options
-`Ctrl-^`                | chdir back to the starting working directory
-`Ctrl-\`                | terminate process
+key(s)           | function
+---------------- | -------------------------------------------------
+`Alt-key`        | toggle ugrep command-line option corresponding to `key`
+`Alt-/`xxxx`/`   | insert Unicode hex code point U+xxxx
+`Esc` `Ctrl-C`   | go back or exit
+`Ctrl-Q`         | quick exit and output the results selected in selection mode
+`Tab`            | chdir to the directory of the file shown at the top of the screen or select file
+`Shift-Tab`      | chdir one level up or deselect file
+`Enter`          | enter selection mode and toggle selected lines to output on exit
+`Up` `Ctrl-P`    | move up
+`Down` `Ctrl-N`  | move down
+`Left` `Ctrl-B`  | move left
+`Right` `Ctrl-F` | move right
+`PgUp` `Ctrl-G`  | move display up by a page
+`PgDn` `Ctrl-D`  | move display down by a page
+`Alt-Up`         | move display up by 1/2 page (MacOS `Shift-Up`)
+`Alt-Down`       | move display down by 1/2 page (MacOS `Shift-Down`)
+`Alt-Left`       | move display left by 1/2 page (MacOS `Shift-Left`)
+`Alt-Right`      | move display right by 1/2 page (MacOS `Shift-Right`)
+`Home` `Ctrl-A`  | move cursor to the beginning of the line
+`End` `Ctrl-E`   | move cursor to the end of the line
+`Ctrl-K`         | delete after cursor
+`Ctrl-L`         | refresh screen
+`Ctrl-O`+`key`   | toggle ugrep command-line option corresponding to `key`, same as `Alt-key`
+`Ctrl-R` `F4`    | jump to bookmark
+`Ctrl-S`         | jump to the next dir/file/context
+`Ctrl-T` `F5`    | toggle split screen (`--split` starts a split-screen TUI)
+`Ctrl-U`         | delete before cursor
+`Ctrl-V`         | verbatim character
+`Ctrl-W`         | jump back one dir/file/context
+`Ctrl-X` `F3`    | set bookmark
+`Ctrl-Y` `F2`    | view or edit the file shown at the top of the screen
+`Ctrl-Z` `F1`    | view help and options
+`Ctrl-^`         | chdir back to the starting working directory
+`Ctrl-]`         | toggle color/mono
+`Ctrl-\`         | terminate process
 
 To interactively search the files in the working directory and below:
 
@@ -1680,7 +1587,8 @@ same line, like XOR:
             unless it matches the negative PATTERN.  Same as -e (?^PATTERN).
             Negative pattern matches are essentially removed before any other
             patterns are matched.  Note that longer patterns take precedence
-            over shorter patterns.  This option may be repeated.
+            over shorter patterns.  Option -N cannot be specified with -P.
+            This option may be repeated.
     -v, --invert-match
             Selected lines are those not matching any of the specified
             patterns.
@@ -1813,29 +1721,29 @@ search binary files with binary patterns, see
 
 To recursively list all files that are ASCII (i.e. 7-bit):
 
-    ug -RL '[^[:ascii:]]'
+    ug -L '[^[:ascii:]]'
 
 To recursively list all files that are non-ASCII, i.e. UTF-8, UTF-16, and
 UTF-32 files with non-ASCII Unicode characters (U+0080 and up):
 
-    ug -Rl '[^[:ascii:]]'
+    ug -l '[^[:ascii:]]'
 
 To check if a file contains non-ASCII Unicode (U+0080 and up):
 
     ug -q '[^[:ascii:]]' myfile && echo "contains Unicode"
 
-To remove invalid Unicode characters from a file (note that `-o` does not work
+To remove invalid Unicode characters from a file (note that `-o` may not work
 because binary data is detected and rejected and newlines are added, but
 `--format="%o%` does not check for binary and copies the match "as is"):
 
-    ug "\p{Unicode}" --format="%o" badfile.txt
+    ug "[\p{Unicode}\n]" --format="%o" badfile.txt
 
 To recursively list files with invalid UTF content (i.e. invalid UTF-8 byte
 sequences or files that contain any UTF-8/16/32 code points that are outside
 the valid Unicode range) by matching any code point with `.` and by using a
-negative pattern `-N '\p{Unicode}'`:
+negative pattern `-N '\p{Unicode}'` to ignore each valid Unicode character:
 
-    ug -Rl -e '.' -N '\p{Unicode}'
+    ug -l -e '.' -N '\p{Unicode}'
 
 To display lines containing laughing face emojis:
 
@@ -1986,13 +1894,13 @@ Same, but with pretty output with headings, line numbers and column numbers
             Ignore files and directories matching the globs in each FILE that
             is encountered in recursive searches.  The default FILE is
             `.gitignore'.  Matching files and directories located in the
-            directory of a FILE's location and in directories below are ignored
-            by temporarily extending the --exclude and --exclude-dir globs, as
-            if --exclude-from=FILE is locally enforced.  Globbing syntax is the
-            same as the --exclude-from=FILE gitignore syntax; directories are
-            excluded when the glob ends in a `/', same as git.  Files and
-            directories explicitly specified as command line arguments are
-            never ignored.  This option may be repeated with additional files.
+            directory of the FILE and in subdirectories below are ignored.
+            Globbing syntax is the same as the --exclude-from=FILE gitignore
+            syntax, but files and directories are excluded instead of only
+            files.  Directories are specifically excluded when the glob ends in
+            a `/'.  Files and directories explicitly specified as command line
+            arguments are never ignored.  This option may be repeated to
+            specify additional files.
     -g GLOBS, --glob=GLOBS
             Search only files whose name matches the specified comma-separated
             list of GLOBS, same as --include='glob' for each `glob' in GLOBS.
@@ -2264,13 +2172,13 @@ search the files:
             Ignore files and directories matching the globs in each FILE that
             is encountered in recursive searches.  The default FILE is
             `.gitignore'.  Matching files and directories located in the
-            directory of a FILE's location and in directories below are ignored
-            by temporarily extending the --exclude and --exclude-dir globs, as
-            if --exclude-from=FILE is locally enforced.  Globbing syntax is the
-            same as the --exclude-from=FILE gitignore syntax; directories are
-            excluded when the glob ends in a `/', same as git.  Files and
-            directories explicitly specified as command line arguments are
-            never ignored.  This option may be repeated with additional files.
+            directory of the FILE and in subdirectories below are ignored.
+            Globbing syntax is the same as the --exclude-from=FILE gitignore
+            syntax, but files and directories are excluded instead of only
+            files.  Directories are specifically excluded when the glob ends in
+            a `/'.  Files and directories explicitly specified as command line
+            arguments are never ignored.  This option may be repeated to
+            specify additional files.
     -M MAGIC, --file-magic=MAGIC
             Only files matching the signature pattern MAGIC are searched.  The
             signature \"magic bytes\" at the start of a file are compared to
@@ -2633,8 +2541,7 @@ meaning; any name or string that does not contain a `:` or `,` may be used.
     -X, --hex
             Output matches in hexadecimal.  This option is equivalent to the
             --binary-files=hex option with --hexdump=2C.  To omit the matching
-            line from the hex output, use option --hexdump instead of -X.  See
-            also option -U.
+            line from the hex output use option --hexdump.  See also option -U.
     --hexdump[=[1-8][a][bch][A[NUM]][B[NUM]][C[NUM]]]
             Output matches in 1 to 8 columns of 8 hexadecimal octets.  The
             default is 2 columns or 16 octets per line.  Option `a' outputs a
@@ -2684,7 +2591,7 @@ Same, compacted to 32 bytes per line without the character column:
 To match the binary pattern `A3..A3.` (hex) in a binary file without
 Unicode pattern matching (which would otherwise match `\xaf` as a Unicode
 character U+00A3 with UTF-8 byte sequence C2 A3) and display the results
-in compact hex with `--hexdump` with pager `less -R`:
+in compact hex with `--hexdump` with pager:
 
     ug --pager --hexdump -U '\xa3[\x00-\xff]{2}\xa3[\x00-\xff]' a.out
 
@@ -2735,13 +2642,13 @@ source):
             Ignore files and directories matching the globs in each FILE that
             is encountered in recursive searches.  The default FILE is
             `.gitignore'.  Matching files and directories located in the
-            directory of a FILE's location and in directories below are ignored
-            by temporarily extending the --exclude and --exclude-dir globs, as
-            if --exclude-from=FILE is locally enforced.  Globbing syntax is the
-            same as the --exclude-from=FILE gitignore syntax; directories are
-            excluded when the glob ends in a `/', same as git.  Files and
-            directories explicitly specified as command line arguments are
-            never ignored.  This option may be repeated with additional files.
+            directory of the FILE and in subdirectories below are ignored.
+            Globbing syntax is the same as the --exclude-from=FILE gitignore
+            syntax, but files and directories are excluded instead of only
+            files.  Directories are specifically excluded when the glob ends in
+            a `/'.  Files and directories explicitly specified as command line
+            arguments are never ignored.  This option may be repeated to
+            specify additional files.
 
 Option `--ignore-files` looks for `.gitignore`, or the specified `FILE`, in
 recursive searches.  When `.gitignore`, or the specified `FILE`, is found while
@@ -2843,14 +2750,13 @@ implicit:
             Ignore files and directories matching the globs in each FILE that
             is encountered in recursive searches.  The default FILE is
             `.gitignore'.  Matching files and directories located in the
-            directory of a FILE's location and in directories below are ignored
-            by temporarily overriding the --exclude and --exclude-dir globs,
-            as if --exclude-from=FILE is locally enforced.  Globbing is the
-            same as --exclude-from=FILE and supports gitignore syntax, but
-            directories are not automatically excluded from searches (use a
-            glob ending with a `/' to identify directories to ignore, same as
-            git).  Files and directories explicitly specified as command line
-            arguments are never ignored.  This option may be repeated.
+            directory of the FILE and in subdirectories below are ignored.
+            Globbing syntax is the same as the --exclude-from=FILE gitignore
+            syntax, but files and directories are excluded instead of only
+            files.  Directories are specifically excluded when the glob ends in
+            a `/'.  Files and directories explicitly specified as command line
+            arguments are never ignored.  This option may be repeated to
+            specify additional files.
     --include=GLOB
             Search only files whose name matches GLOB using wildcard matching,
             same as -g GLOB.  GLOB can use **, *, ?, and [...] as wildcards,
@@ -3043,10 +2949,12 @@ To exclude `fuse` and `tmpfs` type file systems from recursive searches:
 ### Counting the number of matches with -c and -co
 
     -c, --count
-            Only a count of selected lines is written to standard output.  If
-            -o or -u is specified, counts the number of patterns matched.  If
-            -v is specified, counts the number of non-matching lines.  If
-            --tree is specified, outputs directories in a tree-like format.
+            Only a count of selected lines is written to standard output.
+            If -o or -u is specified, counts the number of patterns matched.
+            If -v is specified, counts the number of non-matching lines.  If
+            -m1, (with a comma or --min-count=1) is specified, counts only
+            matching files without outputting zero matches.  If --tree is
+            specified, outputs directories in a tree-like format.
 
 To count the number of lines in a file:
 
@@ -3160,8 +3068,8 @@ To display the line and column numbers of matches in XML with `--xml`:
             a match if specified, otherwise TAG.  The default is `___'.
     --pager[=COMMAND]
             When output is sent to the terminal, uses COMMAND to page through
-            the output.  The default COMMAND is `less -R'.  Enables --heading
-            and --line-buffered.
+            the output.  COMMAND defaults to environment variable PAGER when
+            defined or `less'.  Enables --heading and --line-buffered.
     --pretty
             When output is sent to a terminal, enables --color, --heading, -n,
             --sort, --tree and -T when not explicitly disabled.
@@ -3426,7 +3334,7 @@ field                   | output
 `%[ARG]S`               | if not the first match: `ARG` and separator, see also `%[SEP]$`
 `%s`                    | the separator, see also `%[ARG]S` and `%[SEP]$`
 `%~`                    | a newline character
-`%+`                    | if option `--heading` is used: `%F` and a newline character, suppress all `%F` afterward
+`%+`                    | if option `--heading` is used: `%F` and a newline character, suppress all `%F` and `%H` afterward
 `%m`                    | the number of matches, sequential (or number of matching files with `--format-end`)
 `%M`                    | the number of matching lines (or number of matching files with `--format-end`)
 `%O`                    | the matching line is output as is (a raw string of bytes)
@@ -4103,8 +4011,10 @@ in markdown:
            -c, --count
                   Only a count of selected lines is written to standard output.  If
                   -o or -u is specified, counts the number of patterns matched.  If
-                  -v is specified, counts the number of non-matching lines.  If
-                  --tree is specified, outputs directories in a tree-like format.
+                  -v is specified, counts the number of non-matching lines.  If -m1,
+                  (with a comma or --min-count=1) is specified, counts only matching
+                  files without outputting zero matches.  If --tree is specified,
+                  outputs directories in a tree-like format.
 
            --color[=WHEN], --colour[=WHEN]
                   Mark up the matching text with the expression stored in the
@@ -4136,7 +4046,7 @@ in markdown:
                   command line.
 
            --confirm
-                  Confirm actions in -Q query mode.  The default is confirm.
+                  Confirm actions in -Q query TUI.  The default is confirm.
 
            --cpp  Output file matches in C++.  See also options --format and -u.
 
@@ -4159,6 +4069,9 @@ in markdown:
                   -r option.  If ACTION is `dereference-recurse', read all files
                   under each directory, recursively, following symbolic links.  This
                   is equivalent to the -R option.
+
+           --delay=DELAY
+                  Set the default -Q key response delay.  Default is 3 for 300ms.
 
            --depth=[MIN,][MAX], -1, -2, -3, ... -9, --10, --11, --12, ...
                   Restrict recursive searches from MIN to MAX directory levels deep,
@@ -4368,14 +4281,13 @@ in markdown:
                   Ignore files and directories matching the globs in each FILE that
                   is encountered in recursive searches.  The default FILE is
                   `.gitignore'.  Matching files and directories located in the
-                  directory of a FILE's location and in directories below are
-                  ignored by temporarily extending the --exclude and --exclude-dir
-                  globs, as if --exclude-from=FILE is locally enforced.  Globbing
-                  syntax is the same as the --exclude-from=FILE gitignore syntax;
-                  directories are excluded when the glob ends in a `/', same as git.
-                  Files and directories explicitly specified as command line
-                  arguments are never ignored.  This option may be repeated with
-                  additional files.
+                  directory of the FILE and in subdirectories below are ignored.
+                  Globbing syntax is the same as the --exclude-from=FILE gitignore
+                  syntax, but files and directories are excluded instead of only
+                  files.  Directories are specifically excluded when the glob ends
+                  in a `/'.  Files and directories explicitly specified as command
+                  line arguments are never ignored.  This option may be repeated to
+                  specify additional files.
 
            --include=GLOB
                   Search only files whose name matches GLOB using wildcard matching,
@@ -4475,7 +4387,7 @@ in markdown:
 
            --lines
                   Apply Boolean queries to match lines, the opposite of --files.
-                  This is the default Boolean query mode to match specific lines.
+                  This is the default Boolean mode to match specific lines.
 
            -M MAGIC, --file-magic=MAGIC
                   Only files matching the signature pattern MAGIC are searched.  The
@@ -4511,7 +4423,8 @@ in markdown:
                   unless it matches the negative PATTERN.  Same as -e (?^PATTERN).
                   Negative pattern matches are essentially removed before any other
                   patterns are matched.  Note that longer patterns take precedence
-                  over shorter patterns.  This option may be repeated.
+                  over shorter patterns.  Option -N cannot be specified with -P.
+                  This option may be repeated.
 
            -n, --line-number
                   Each output line is preceded by its relative line number in the
@@ -4571,31 +4484,31 @@ in markdown:
 
            --pager[=COMMAND]
                   When output is sent to the terminal, uses COMMAND to page through
-                  the output.  The default COMMAND is `less -R'.  Enables --heading
-                  and --line-buffered.
+                  the output.  COMMAND defaults to environment variable PAGER when
+                  defined or `less'.  Enables --heading and --line-buffered.
 
            --pretty
                   When output is sent to a terminal, enables --color, --heading, -n,
                   --sort, --tree and -T when not explicitly disabled.
 
            -Q[=DELAY], --query[=DELAY]
-                  Query mode: user interface to perform interactive searches.  This
+                  Query mode: start a TUI to perform interactive searches.  This
                   mode requires an ANSI capable terminal.  An optional DELAY
                   argument may be specified to reduce or increase the response time
                   to execute searches after the last key press, in increments of
-                  100ms, where the default is 5 (0.5s delay).  No whitespace may be
+                  100ms, where the default is 3 (300ms delay).  No whitespace may be
                   given between -Q and its argument DELAY.  Initial patterns may be
                   specified with -e PATTERN, i.e. a PATTERN argument requires option
                   -e.  Press F1 or CTRL-Z to view the help screen.  Press F2 or
                   CTRL-Y to invoke a command to view or edit the file shown at the
                   top of the screen.  The command can be specified with option
-                  --view, or defaults to environment variable PAGER if defined, or
+                  --view, or defaults to environment variable PAGER when defined, or
                   EDITOR.  Press Tab and Shift-Tab to navigate directories and to
                   select a file to search.  Press Enter to select lines to output.
                   Press ALT-l for option -l to list files, ALT-n for -n, etc.
-                  Non-option commands include ALT-] to increase fuzziness and ALT-}
-                  to increase context.  Enables --heading.  See also options
-                  --confirm and --view.
+                  Non-option commands include ALT-] to increase context and ALT-} to
+                  increase fuzzyness.  See also options --confirm, --delay, --split
+                  and --view.
 
            -q, --quiet, --silent
                   Quiet mode: suppress all output.  Only search a file until a match
@@ -4635,6 +4548,9 @@ in markdown:
                   number, byte offset and the matched line.  The default is a colon
                   (`:'), a plus (`+') for additional matches on the same line, and a
                   bar (`|') for multi-line pattern matches.
+
+           --split
+                  Split the -Q query TUI screen on startup.
 
            --sort[=KEY]
                   Displays matching files in the order specified by KEY in recursive
@@ -4716,7 +4632,7 @@ in markdown:
                   patterns.
 
            --view[=COMMAND]
-                  Use COMMAND to view/edit a file in query mode when pressing
+                  Use COMMAND to view/edit a file in -Q query TUI by pressing
                   CTRL-Y.
 
            -W, --with-hex
@@ -4744,8 +4660,8 @@ in markdown:
            -X, --hex
                   Output matches in hexadecimal.  This option is equivalent to the
                   --binary-files=hex option with --hexdump=2C.  To omit the matching
-                  line from the hex output, use option --hexdump instead of -X.  See
-                  also option -U.
+                  line from the hex output use option --hexdump.  See also option
+                  -U.
 
            -x, --line-regexp
                   Select only those matches that exactly match the whole line, as if
@@ -5367,7 +5283,7 @@ in markdown:
 
 
 
-    ugrep 4.0.0                      August 18, 2023                        UGREP(1)
+    ugrep 4.3.0                      October 7, 2023                        UGREP(1)
 
 🔝 [Back to table of contents](#toc)
 
@@ -5381,9 +5297,9 @@ For PCRE regex patterns with option `-P`, please see the PCRE documentation
 has more features than the pattern syntax described below.  For the patterns in
 common the syntax and meaning are the same.
 
-Note that `\s` and inverted bracket lists `[^...]` are modified in **ugrep** to
-prevent matching newlines `\n`.  This modification is done to replicate the
-behavior of grep.
+Note that `[[:space:]]` and `\s` and inverted bracket lists `[^...]` are
+modified in **ugrep** to prevent matching newlines `\n`.  This modification is
+done to replicate the behavior of grep.
 
 <a name="posix-syntax"/>
 
@@ -5412,7 +5328,7 @@ sub-expression patterns `φ` and `ψ`:
   `\Q...\E` | matches the quoted content between `\Q` and `\E` literally
   `[abc]`   | matches one of `a`, `b`, or `c`
   `[0-9]`   | matches a digit `0` to `9`
-  `[^0-9]`  | matches any character except a digit and excluding newline `\n`
+  `[^0-9]`  | matches any character except a digit and excluding `\n`
   `φ?`      | matches `φ` zero or one time (optional)
   `φ*`      | matches `φ` zero or more times (repetition)
   `φ+`      | matches `φ` one or more times (repetition)
@@ -5498,33 +5414,33 @@ that has the same meaning as `\p{^C}`, which matches any character except
 characters in the class `C`.  For example, `\P{ASCII}` is the same as
 `\p{^ASCII}` which is the same as `[[:^ascii]]`.
 
-  POSIX form   | POSIX category    | Matches
-  ------------ | ----------------- | ---------------------------------------------
-  `[:ascii:]`  | `\p{ASCII}`       | matches an ASCII character U+0000 to U+007F
-  `[:space:]`  |                   | matches a white space character `[ \t\n\v\f\r]` or `\p{Space}` with `-P`
-  `[:xdigit:]` | `\p{Xdigit}`      | matches a hex digit `[0-9A-Fa-f]`
-  `[:cntrl:]`  | `\p{Cntrl}`       | matches a control character `[\x00-\0x1f\x7f]`
-  `[:print:]`  | `\p{Print}`       | matches a printable character `[\x20-\x7e]`
-  `[:alnum:]`  | `\p{Alnum}`       | matches a alphanumeric character `[0-9A-Za-z]` or `[\p{L}\p{N}]` with `-P`
-  `[:alpha:]`  | `\p{Alpha}`       | matches a letter `[A-Za-z]` or `\p{L}` with `-P`
-  `[:blank:]`  | `\p{Blank}`, `\h` | matches a blank `[ \t]` or horizontal space with `-P`
-  `[:digit:]`  | `\p{Digit}`       | matches a digit `[0-9]` or `\p{Nd}` with `-P`
-  `[:graph:]`  | `\p{Graph}`       | matches a visible character `[\x21-\x7e]`
-  `[:lower:]`  |                   | matches a lower case letter `[a-z]` or `\p{Ll}` with `-P`
-  `[:punct:]`  | `\p{Punct}`       | matches a punctuation character `[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]`
-  `[:upper:]`  |                   | matches an upper case letter `[A-Z]` or `\p{Lu}` with `-P`
-  `[:word:]`   |                   | matches a word character `[0-9A-Za-z_]` or `[\p{L}\p{N}_]` with `-P`
-  `[:^blank:]` | `\P{Blank}`, `\H` | matches a non-blank character including newline `\n`
-  `[:^digit:]` | `\P{Digit}`       | matches a non-digit including newline `\n`
+  POSIX form   | Matches
+  ------------ | ---------------------------------------------
+  `[:ascii:]`  | matches an ASCII character U+0000 to U+007F including `\n`
+  `[:space:]`  | matches a white space character `[ \t\v\f\r]` excluding `\n`
+  `[:xdigit:]` | matches a hex digit `[0-9A-Fa-f]`
+  `[:cntrl:]`  | matches a control character `[\x00-\t\x0b-\x1f\x7f]` excluding `\n`
+  `[:print:]`  | matches a printable character `[\x20-\x7e]`
+  `[:alnum:]`  | matches a alphanumeric character `[0-9A-Za-z]`
+  `[:alpha:]`  | matches a letter `[A-Za-z]`
+  `[:blank:]`  | matches a blank character `\h` same as `[ \t]`
+  `[:digit:]`  | matches a digit `[0-9]`
+  `[:graph:]`  | matches a visible character `[\x21-\x7e]`
+  `[:lower:]`  | matches a lower case letter `[a-z]`
+  `[:punct:]`  | matches a punctuation character `[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]`
+  `[:upper:]`  | matches an upper case letter `[A-Z]`
+  `[:word:]`   | matches a word character `[0-9A-Za-z_]`
+  `[:^blank:]` | matches a non-blank characater `\H` same as `[^ \t]`
+  `[:^digit:]` | matches a non-digit `[^0-9]`
 
 POSIX character categories only cover ASCII, `[[:^ascii]]` is empty and
 therefore invalid to use.  By contrast, `[^[:ascii]]` is a Unicode character
 class that excludes the ASCII character category.
 
-Note that the patterns `[[:ascii:]]`, `[[:ctnrl:]]` and `[[:space:]]` and most
-of the negated classes such as `[[:^blank:]]` and `[[:digit:]]` match newlines,
-which is the official definition of these POSIX categories.  By contrast,
-GNU/BSD grep never match newlines.  As a consequence, more patterns may match.
+Note that the patterns `[[:ascii:]]` and negated classes such as `[[:^digit:]]`
+match newlines, which is the official definition of these POSIX categories.  By
+contrast, GNU/BSD grep never match newlines.  As a consequence, more patterns
+may match.
 
 Negated character classes of the form `[^...]` match any Unicode character
 except the given characters and does not match newlines either.  For example
@@ -5542,22 +5458,24 @@ Option `-U` disables Unicode wide-character matching, i.e. ASCII matching.
   `\D`                                   | matches a non-digit including `\n`
   `\e`                                   | matches ESC U+001b
   `\f`                                   | matches FF U+000c
+  `\h`                                   | matches a blank `[ \t]`
+  `\H`                                   | matches a non-blank `[^ \t]` including `\n`
   `\l`                                   | matches a lower case letter `\p{Ll}`
   `\n`                                   | matches LF U+000a
   `\N`                                   | matches a non-LF character
   `\r`                                   | matches CR U+000d
   `\R`                                   | matches a Unicode line break (`\r\n`, `\r`, `\v`, `\f`, `\n`, U+0085, U+2028 and U+2029)
   `\s`                                   | matches a white space character `[ \t\v\f\r\x85\p{Z}]` excluding `\n`
-  `\S`                                   | matches a non-white space character
+  `\S`                                   | matches a non-white space character and excluding `\n`
   `\t`                                   | matches TAB U+0009
   `\u`                                   | matches an upper case letter `\p{Lu}`
   `\v`                                   | matches VT U+000b or vertical space character with option `-P`
   `\w`                                   | matches a word character `[0-9A-Za-z_]` or `[\p{L}\p{Nd}\p{Pc}]`
-  `\W`                                   | matches a non-Unicode word character
-  `\X`                                   | matches any ISO-8859-1 or Unicode character
-  `\p{Space}`                            | matches a white space character `[ \t\n\v\f\r\x85\p{Z}]` including `\n`
+  `\W`                                   | matches a non-Unicode word character including `\n`
+  `\X`                                   | matches any ISO-8859-1 or Unicode character including `\n`
+  `\p{Space}`                            | matches a white space character `[ \t\v\f\r\x85\p{Z}]` excluding `\n`
   `\p{Unicode}`                          | matches any Unicode character U+0000 to U+10FFFF minus U+D800 to U+DFFF
-  `\p{ASCII}`                            | matches an ASCII character U+0000 to U+007F
+  `\p{ASCII}`                            | matches an ASCII character U+0000 to U+007F including `\n`
   `\p{Non_ASCII_Unicode}`                | matches a non-ASCII character U+0080 to U+10FFFF minus U+D800 to U+DFFF
   `\p{L&}`                               | matches a character with Unicode property L& (i.e. property Ll, Lu, or Lt)
   `\p{Letter}`,`\p{L}`                   | matches a character with Unicode property Letter
