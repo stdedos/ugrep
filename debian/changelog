@@ -1,4 +1,11 @@
-ugrep (4.3.0-18) focal; urgency=medium
+ugrep (4.3.0-22) focal; urgency=medium
+
+  * `.github/utils/tests/is-changelog-valid`: Fix re-release checks
+  * `ugrep` `--help` also has short `--version` information
+
+ -- Stavros Ntentos <133706+stdedos@users.noreply.github.com>  Mon, 16 Oct 2023 13:54:32 +0300
+
+ ugrep (4.3.0-18) focal; urgency=medium
 
   * Update upstream version: https://github.com/Genivia/ugrep/tree/v4.3.0
   * `ugrep` single argument `-v` or `-h` means `version` and `help` respectively
