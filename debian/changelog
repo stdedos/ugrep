@@ -1,3 +1,10 @@
+ugrep (4.3.0-18) focal; urgency=medium
+
+  * Update upstream version: https://github.com/Genivia/ugrep/tree/v4.3.0
+  * `ugrep` single argument `-v` or `-h` means `version` and `help` respectively
+
+ -- Stavros Ntentos <133706+stdedos@users.noreply.github.com>  Mon, 16 Oct 2023 11:08:43 +0300
+
 ugrep (4.0.1-15) focal; urgency=medium
 
   * Update upstream version: https://github.com/Genivia/ugrep/tree/v4.0.1
