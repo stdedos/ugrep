@@ -1,3 +1,9 @@
+ugrep (4.5.2-23) focal; urgency=medium
+
+  * Update upstream version: https://github.com/Genivia/ugrep/tree/v4.5.2
+
+ -- Stavros Ntentos <133706+stdedos@users.noreply.github.com>  Thu, 18 Jan 2024 11:24:37 +0200
+
 ugrep (4.3.0-22) focal; urgency=medium
 
   * `.github/utils/tests/is-changelog-valid`: Fix re-release checks
