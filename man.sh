@@ -20,17 +20,17 @@ cat >> man/ugrep.1 << 'END'
 .B ugrep
 [\fIOPTIONS\fR] [\fB-i\fR] [\fB-Q\fR|\fIPATTERN\fR] [\fB-e\fR \fIPATTERN\fR] [\fB-N\fR \fIPATTERN\fR] [\fB-f\fR \fIFILE\fR]
       [\fB-F\fR|\fB-G\fR|\fB-P\fR|\fB-Z\fR] [\fB-U\fR] [\fB-m\fR [\fIMIN,\fR][\fIMAX\fR]] [\fB--bool\fR [\fB--files\fR|\fB--lines\fR]]
-      [\fB-r\fR|\fB-R\fR|\fB-1\fR|...|\fB-9\fR|\fB--10\fR|...] [\fB-t\fR \fITYPES\fR] [\fB-g\fR \fIGLOBS\fR] [\fB--sort\fR[=\fIKEY\fR]]
+      [\fB-r\fR|\fB-R\fR|\fB-1\fR|...|\fB-9\fR|\fB-10\fR|...] [\fB-t\fR \fITYPES\fR] [\fB-g\fR \fIGLOBS\fR] [\fB--sort\fR[=\fIKEY\fR]]
       [\fB-l\fR|\fB-c\fR] [\fB-o\fR] [\fB-n\fR] [\fB-k\fR] [\fB-b\fR] [\fB-A\fR \fINUM\fR] [\fB-B\fR \fINUM\fR] [\fB-C \fR\fINUM\fR] [\fB-y\fR]
       [\fB--color\fR[=\fIWHEN\fR]|\fB--colour\fR[=\fIWHEN\fR]] [\fB--pretty\fR] [\fB--pager\fR[=\fICOMMAND\fR]]
       [\fB--hexdump\fR|\fB--csv\fR|\fB--json\fR|\fB--xml\fR] [\fB-I\fR] [\fB-z\fR] [\fB--zmax\fR=\fINUM\fR] [\fIFILE\fR \fI...\fR]
 .SH DESCRIPTION
 The \fBugrep\fR utility searches any given input files, selecting lines that
-match one or more patterns.  By default, a pattern matches an input line if the
-regular expression (RE) matches the input line.  A pattern matches multiple
-input lines if the RE in the pattern matches one or more newlines in the input.
-An empty pattern matches every line.  Each input line that matches at least one
-of the patterns is written to the standard output.
+match one or more patterns specified as regular expressions or as fixed
+strings.  A pattern matches multiple input lines when the pattern's regular
+expression matches one or more newlines.  An empty pattern matches every line.
+Each input line that matches at least one of the patterns is written to the
+standard output.
 .PP
 The \fBug\fR command is intended for interactive searching, using a .ugrep
 configuration file located in the working directory or home directory, see
@@ -43,20 +43,22 @@ and image metadata, when the corresponding filter tools are installed.
 .PP
 A list of matching files is produced with option \fB-l\fR
 (\fB--files-with-matches\fR).  Option \fB-c\fR (\fB--count\fR) counts the
-number of matching lines.  Combine with option \fB-o\fR to count the total
-number of matches.  Combine with option \fB-m1,\fR (\fB--min-count=1\fR) to
-omit zero matches.
+number of matching lines.  When combined with option \fB-o\fR, counts the total
+number of matches.  When combined with option \fB-m1,\fR (\fB--min-count=1\fR),
+skips files with zero matches.
 .PP
 The default pattern syntax is an extended form of the POSIX ERE syntax, same as
 option \fB-E\fR (\fB--extended-regexp\fR).  Try \fBug --help regex\fR for help
 with pattern syntax and how to use logical connectives to specify Boolean
-search queries with option \fB-%\fR (\fB--bool\fR).  Options \fB-F\fR
+search queries with option \fB-%\fR (\fB--bool\fR) to match lines and \fB-%%\fR
+(\fB--bool --files\fR) to match files.  Options \fB-F\fR
 (\fB--fixed-strings\fR), \fB-G\fR (\fB--basic-regexp\fR) and \fB-P\fR
 (\fB--perl-regexp\fR) specify other pattern syntaxes.
 .PP
-Option \fB-i\fR (\fB--ignore-case\fR) ignores case in ASCII patterns.  Combine
-with option \fB-P\fR for case-insensitive Unicode matching.  Option \fB-j\fR
-(\fB--smart-case\fR) enables \fB-i\fR only if the search patterns are specified
+Option \fB-i\fR (\fB--ignore-case\fR) ignores case in ASCII patterns.  When
+combined with option \fB-P\fR, ignores case in Unicode patterns.  Option
+\fB-j\fR (\fB--smart-case\fR) enables \fB-i\fR only if the search patterns are
+specified
 in lower case.
 .PP
 Fuzzy (approximate) search is specified with option \fB-Z\fR (\fB--fuzzy\fR)
@@ -67,10 +69,9 @@ Note that pattern `.' matches any non-newline character.  Pattern `\\n' matches
 a newline character.  Multiple lines may be matched with patterns that match
 one or more newline characters.
 .PP
-Empty-matching patterns do not match all lines.  For example, the pattern `a*'
-will match one or more a's.  The single exception to this rule is the empty
-pattern "", which matches all lines.  Option \fB-Y\fR forces empty matches for
-compatibility with other grep tools.  
+The empty pattern "" matches all lines.  Other empty-matching patterns do not.
+For example, the pattern `a*' will match one or more a's.  Option \fB-Y\fR
+forces empty matches for compatibility with other grep tools.  
 .PP
 Option \fB-f\fR \fIFILE\fR matches patterns specified in \fIFILE\fR.
 .PP
@@ -114,9 +115,9 @@ the contents of compressed files and archives stored within archives up to
 \fINUM\fR levels.
 .PP
 A query terminal user interface (TUI) is opened with \fB-Q\fR (\fB--query\fR)
-to interactively specify search patterns and view search results.  Note that a
-\fIPATTERN\fR argument cannot be specified in this case.  To specify one or
-more patterns with \fB-Q\fR to start searching, use \fB-e PATTERN\fR.
+to interactively specify search patterns and view search results.  A
+\fIPATTERN\fR argument requires \fB-e PATTERN\fR to start the query TUI with
+the specified pattern.
 .PP
 Output to a terminal for viewing is enhanced with \fB--pretty\fR, which is
 enabled by default with the \fBug\fR command.
@@ -198,9 +199,10 @@ is loaded first, followed by the remaining options and arguments on the command
 line.
 .PP
 The \fB--save-config\fR option saves a `.ugrep' configuration file to the
-working directory with a subset of the current options.  The
-\fB--save-config\fR=\fIFILE\fR option saves the configuration to \fIFILE\fR.
-The configuration is written to standard output when \fIFILE\fR is a `-'.
+working directory with a subset of the options specified on the command line.
+The \fB--save-config\fR=\fIFILE\fR option saves the configuration to
+\fIFILE\fR.  The configuration is written to standard output when \fIFILE\fR is
+a `-'.
 .SH GLOBBING
 Globbing is used by options \fB-g\fR, \fB--include\fR, \fB--include-dir\fR,
 \fB--include-from\fR, \fB--exclude\fR, \fB--exclude-dir\fR,
@@ -298,9 +300,11 @@ supported.
 May be used to specify ANSI SGR parameters to highlight matches and other
 attributes when option \fB--color\fR is used.  Its value is a colon-separated
 list of ANSI SGR parameters that defaults to
-\fBcx=33:mt=1;31:fn=1;35:ln=1;32:cn=1;32:bn=1;32:se=36\fR.  The \fBmt=\fR,
-\fBms=\fR, and \fBmc=\fR capabilities of \fBGREP_COLORS\fR take priority over
-\fBGREP_COLOR\fR.  Option \fB--colors\fR takes priority over \fBGREP_COLORS\fR.
+\fBcx=33:mt=1;31:fn=1;35:ln=1;32:cn=1;32:bn=1;32:se=36\fR with additional
+parameters for TUI colors \fB:qp=1;32:qe=1;37;41:qm=1;32:ql=36:qb=1;35\fR.
+The \fBmt=\fR, \fBms=\fR, and \fBmc=\fR capabilities of \fBGREP_COLORS\fR take
+priority over \fBGREP_COLOR\fR.  Option \fB--colors\fR takes priority over
+\fBGREP_COLORS\fR.
 .SH GREP_COLORS
 Colors are specified as string of colon-separated ANSI SGR parameters of the
 form `what=substring', where `substring' is a semicolon-separated list of ANSI
@@ -310,40 +314,52 @@ SGR codes or `k' (black), `r' (red), `g' (green), `y' (yellow), `b' (blue), `m'
 combined with one or more font properties `n' (normal), `f' (faint), `h'
 (highlight), `i' (invert), `u' (underline).  Substrings may be specified for:
 .IP \fBsl=\fR
-SGR substring for selected lines.
+selected lines.
 .IP \fBcx=\fR
-SGR substring for context lines.
+context lines.
 .IP \fBrv\fR
-Swaps the \fBsl=\fR and \fBcx=\fR capabilities when \fB-v\fR is specified.
+swaps the \fBsl=\fR and \fBcx=\fR capabilities when \fB-v\fR is specified.
 .IP \fBmt=\fR
-SGR substring for matching text in any matching line.
+matching text in any matching line.
 .IP \fBms=\fR
-SGR substring for matching text in a selected line.  The substring \fBmt=\fR by
+matching text in a selected line.  The substring \fBmt=\fR by
 default.
 .IP \fBmc=\fR
-SGR substring for matching text in a context line.  The substring \fBmt=\fR by
+matching text in a context line.  The substring \fBmt=\fR by
 default.
 .IP \fBfn=\fR
-SGR substring for filenames.
+filenames.
 .IP \fBln=\fR
-SGR substring for line numbers.
+line numbers.
 .IP \fBcn=\fR
-SGR substring for column numbers.
+column numbers.
 .IP \fBbn=\fR
-SGR substring for byte offsets.
+byte offsets.
 .IP \fBse=\fR
-SGR substring for separators.
+separators.
 .IP \fBrv\fR
 a Boolean parameter, switches \fBsl=\fR and \fBcx=\fR with option \fB-v\fR.
 .IP \fBhl\fR
 a Boolean parameter, enables filename hyperlinks (\fB\\33]8;;link\fR).
 .IP \fBne\fR
 a Boolean parameter, disables ``erase in line'' \fB\\33[K\fR.
+.IP \fBqp=\fR
+TUI prompt.
+.IP \fBqe=\fR
+TUI errors.
+.IP \fBqr=\fR
+TUI regex.
+.IP \fBqm=\fR
+TUI regex meta characters.
+.IP \fBql=\fR
+TUI regex lists and literals.
+.IP \fBqb=\fR
+TUI regex braces.
 .SH FORMAT
 Option \fB--format\fR=\fIFORMAT\fR specifies an output format for file matches.
 Fields may be used in \fIFORMAT\fR, which expand into the following values:
-.IP \fB%[\fR\fIARG\fR\fB]F\fR
-if option \fB-H\fR is used: \fIARG\fR, the file pathname and separator.
+.IP \fB%[\fR\fITEXT\fR\fB]F\fR
+if option \fB-H\fR is used: \fITEXT\fR, the file pathname and separator.
 .IP \fB%f\fR
 the file pathname.
 .IP \fB%a\fR
@@ -352,33 +368,33 @@ the file basename without directory path.
 the directory path to the file.
 .IP \fB%z\fR
 the file pathname in a (compressed) archive.
-.IP \fB%[\fR\fIARG\fR\fB]H\fR
-if option \fB-H\fR is used: \fIARG\fR, the quoted pathname and separator, \\"
+.IP \fB%[\fR\fITEXT\fR\fB]H\fR
+if option \fB-H\fR is used: \fITEXT\fR, the quoted pathname and separator, \\"
 and \\\\ replace " and \\.
 .IP \fB%h\fR
 the quoted file pathname, \\" and \\\\ replace " and \\.
-.IP \fB%[\fR\fIARG\fR\fB]N\fR
-if option \fB-n\fR is used: \fIARG\fR, the line number and separator.
+.IP \fB%[\fR\fITEXT\fR\fB]N\fR
+if option \fB-n\fR is used: \fITEXT\fR, the line number and separator.
 .IP \fB%n\fR
 the line number of the match.
-.IP \fB%[\fR\fIARG\fR\fB]K\fR
-if option \fB-k\fR is used: \fIARG\fR, the column number and separator.
+.IP \fB%[\fR\fITEXT\fR\fB]K\fR
+if option \fB-k\fR is used: \fITEXT\fR, the column number and separator.
 .IP \fB%k\fR
 the column number of the match.
-.IP \fB%[\fR\fIARG\fR\fB]B\fR
-if option \fB-b\fR is used: \fIARG\fR, the byte offset and separator.
+.IP \fB%[\fR\fITEXT\fR\fB]B\fR
+if option \fB-b\fR is used: \fITEXT\fR, the byte offset and separator.
 .IP \fB%b\fR
 the byte offset of the match.
-.IP \fB%[\fR\fIARG\fR\fB]T\fR
-if option \fB-T\fR is used: \fIARG\fR and a tab character.
+.IP \fB%[\fR\fITEXT\fR\fB]T\fR
+if option \fB-T\fR is used: \fITEXT\fR and a tab character.
 .IP \fB%t\fR
 a tab character.
 .IP \fB%[\fR\fISEP\fR\fB]$\fR
 set field separator to \fISEP\fR for the rest of the format fields.
-.IP \fB%[\fR\fIARG\fR\fB]<\fR
-if the first match: \fIARG\fR.
-.IP \fB%[\fR\fIARG\fR\fB]>\fR
-if not the first match: \fIARG\fR.
+.IP \fB%[\fR\fITEXT\fR\fB]<\fR
+if the first match: \fITEXT\fR.
+.IP \fB%[\fR\fITEXT\fR\fB]>\fR
+if not the first match: \fITEXT\fR.
 .IP \fB%,\fR
 if not the first match: a comma, same as \fB%[,]>\fR.
 .IP \fB%:\fR
@@ -387,10 +403,10 @@ if not the first match: a colon, same as \fB%[:]>\fR.
 if not the first match: a semicolon, same as \fB%[;]>\fR.
 .IP \fB%|\fR
 if not the first match: a vertical bar, same as \fB%[|]>\fR.
-.IP \fB%[\fR\fIARG\fR\fB]S\fR
-if not the first match: \fIARG\fR and separator, see also \fB%[\fR\fISEP\fR\fB]$.
+.IP \fB%[\fR\fITEXT\fR\fB]S\fR
+if not the first match: \fITEXT\fR and separator, see also \fB%[\fR\fISEP\fR\fB]$.
 .IP \fB%s\fR
-the separator, see also \fB%[\fR\fIARG\fR\fB]S\fR and \fB%[\fR\fISEP\fR\fB]$.
+the separator, see also \fB%[\fR\fITEXT\fR\fB]S\fR and \fB%[\fR\fISEP\fR\fB]$.
 .IP \fB%~\fR
 a newline character.
 .IP \fB%M\fR
@@ -473,7 +489,7 @@ the percentage sign.
 Formatted output is written without a terminating newline, unless \fB%~\fR or
 `\\n' is explicitly specified in the format string.
 .PP
-The \fB[\fR\fIARG\fR\fB]\fR part of a field is optional and may be omitted.
+The \fB[\fR\fITEXT\fR\fB]\fR part of a field is optional and may be omitted.
 When present, the argument must be placed in \fB[]\fR brackets, for example
 \fB%[,]F\fR to output a comma, the pathname, and a separator.
 .PP
@@ -529,7 +545,7 @@ $ ugrep -cowi patricia myfile.txt
 .PP
 List lines with `amount' and a decimal, ignoring case (space is AND):
 .IP
-$ ugrep -i --bool 'amount \d+(\.\d+)?' myfile.txt
+$ ugrep -i -% 'amount \d+(\.\d+)?' myfile.txt
 .PP
 Alternative query:
 .IP
@@ -589,7 +605,7 @@ $ ugrep -n -e FIXME --and urgent myfile.cpp
 .PP
 The same, but with a Boolean query pattern (a space is AND):
 .IP
-$ ugrep -n --bool 'FIXME urgent' myfile.cpp
+$ ugrep -n -% 'FIXME urgent' myfile.cpp
 .PP
 Find lines with `FIXME' that do not also contain `later':
 .IP
@@ -597,7 +613,7 @@ $ ugrep -n -e FIXME --andnot later myfile.cpp
 .PP
 The same, but with a Boolean query pattern (a space is AND, - is NOT):
 .IP
-$ ugrep -n --bool 'FIXME -later' myfile.cpp
+$ ugrep -n -% 'FIXME -later' myfile.cpp
 .PP
 Output a list of line numbers of lines with `FIXME' but not `later':
 .IP
@@ -606,7 +622,7 @@ $ ugrep -e FIXME --andnot later --format='%,%n' myfile.cpp
 Recursively list all files with both `FIXME' and `LICENSE' anywhere in the
 file, not necessarily on the same line:
 .IP
-$ ugrep -l --files --bool 'FIXME LICENSE'
+$ ugrep -l -%% 'FIXME LICENSE'
 .PP
 Find lines with `FIXME' in the C/C++ files stored in a tarball:
 .IP
@@ -617,8 +633,8 @@ and `old' directories:
 .IP
 $ ugrep -n FIXME -tc++ -g^bak/,^old/
 .PP
-Recursively search for the word `copyright' in cpio/jar/pax/tar/zip archives,
-compressed and regular files, and in PDFs using a PDF filter:
+Recursively search for the word `copyright' in cpio, jar, pax, tar, zip, 7z
+archives, compressed and regular files, and in PDFs using a PDF filter:
 .IP
 $ ugrep -z -w --filter='pdf:pdftotext % -' copyright
 .PP
@@ -649,7 +665,7 @@ $ tail -f /var/log/system.log | ugrep -u -i -w bug
 .PP
 Interactive fuzzy search with Boolean search queries:
 .IP
-$ ugrep -Q -l --bool -Z3 --sort=best
+$ ugrep -Q -l -% -Z3 --sort=best
 .PP
 Display all words in a MacRoman-encoded file that has CR newlines:
 .IP

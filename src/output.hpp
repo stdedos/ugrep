@@ -56,7 +56,7 @@ class Output {
 
  protected:
 
-  static constexpr size_t SIZE = 16384;          // size of each buffer in the buffers container
+  static constexpr size_t SIZE = 32768;          // size of each buffer in the buffers container
   static constexpr size_t STOP = UNDEFINED_SIZE; // if last == STOP, cancel output
   static constexpr int FLUSH   = 1;              // mode bit: flush each line of output
   static constexpr int HOLD    = 2;              // mode bit: hold output
@@ -573,10 +573,10 @@ class Output {
     mode_ |= FLUSH;
   }
 
-  // flush if output is line buffered to flush each line
-  void check_flush()
+  // flush if output is line buffered to flush each line, unless we have to wait to acquire the output lock
+  inline void check_flush()
   {
-    if (mode_ == FLUSH)
+    if (mode_ == FLUSH && (sync == NULL || sync->try_acquire(lock_)))
       flush();
   }
 

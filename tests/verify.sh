@@ -7,6 +7,8 @@ UG="$UGREP --color=always --sort $@"
 
 FILES="Hello.bat Hello.class Hello.java Hello.pdf Hello.sh Hello.txt empty.txt emptyline.txt"
 
+# check for errors in the installation
+
 if test ! -x "$UGREP" ; then
   echo "$UGREP not found, exiting"
   exit 1
@@ -22,13 +24,15 @@ if ! $UG --version | head -n1 ; then
   exit 1
 fi
 
+# check for recommended libraries
+
 if $UG -Fq 'HAVE_PCRE2 1' "$CONFIGH" ; then
   have_pcre2=yes
 else
   have_pcre2=no
 fi
 
-echo "Have libpcre2?" $have_pcre2
+printf "Have libpcre2?  %3s (recommended)\n" $have_pcre2
 
 if test "$have_pcre2" = "no" ; then
   if $UG -Fq 'HAVE_BOOST_REGEX 1' "$CONFIGH" ; then
@@ -37,7 +41,7 @@ if test "$have_pcre2" = "no" ; then
     have_boost_regex=no
   fi
 
-  echo "Have libboost_regex?" $have_boost_regex
+  printf "Have libboost_regex? %s (optional)\n" $have_boost_regex
 fi
 
 if $UG -Fq 'HAVE_LIBZ 1' "$CONFIGH" ; then
@@ -46,7 +50,7 @@ else
   have_libz=no
 fi
 
-echo "Have libz?" $have_libz
+printf "Have libz?      %3s (recommended)\n" $have_libz
 
 if $UG -Fq 'HAVE_LIBBZ2 1' "$CONFIGH" ; then
   have_libbz2=yes
@@ -54,7 +58,7 @@ else
   have_libbz2=no
 fi
 
-echo "Have libbz2?" $have_libbz2
+printf "Have libbz2?    %3s (recommended)\n" $have_libbz2
 
 if $UG -Fq 'HAVE_LIBLZMA 1' "$CONFIGH" ; then
   have_liblzma=yes
@@ -62,7 +66,9 @@ else
   have_liblzma=no
 fi
 
-echo "Have liblzma?" $have_liblzma
+printf "Have liblzma?   %3s (recommended)\n" $have_liblzma
+
+# check for optional libraries
 
 if $UG -Fq 'HAVE_LIBLZ4 1' "$CONFIGH" ; then
   have_liblz4=yes
@@ -70,7 +76,7 @@ else
   have_liblz4=no
 fi
 
-echo "Have liblz4?" $have_liblz4
+printf "Have liblz4?    %3s (optional)\n" $have_liblz4
 
 if $UG -Fq 'HAVE_LIBZSTD 1' "$CONFIGH" ; then
   have_libzstd=yes
@@ -78,9 +84,38 @@ else
   have_libzstd=no
 fi
 
-echo "Have libzstd?" $have_libzstd
+printf "Have libzstd?   %3s (optional)\n" $have_libzstd
+
+if $UG -Fq 'HAVE_LIBBROTLI 1' "$CONFIGH" ; then
+  have_libbrotli=yes
+else
+  have_libbrotli=no
+fi
+
+printf "Have libbrotli? %3s (optional)\n" $have_libbrotli
+
+if $UG -Fq 'HAVE_7ZIP 1' "$CONFIGH" ; then
+  have_7zip=yes
+else
+  have_7zip=no
+fi
+
+printf "Have 7zip?      %3s (optional)\n" $have_7zip
+
+# check for libraries that aren't typically installed, don't report
+
+if $UG -Fq 'HAVE_LIBBZIP3 1' "$CONFIGH" ; then
+  have_libbzip3=yes
+  printf "Have libbzip3?  yes (requested)\n"
+else
+  have_libbzip3=no
+fi
+
+# set special color scheme
 
 export GREP_COLORS='cx=hb:ms=hug:mc=ib+W:fn=h35:ln=32h:cn=1;32:bn=1;32:se=+36'
+
+# set ERR and DIFF to compare and report
 
 function ERR() {
   echo "[1;31mError:[0m[1m ugrep --sort $1 [1;31mfailed[0m"
@@ -88,6 +123,8 @@ function ERR() {
 }
 
 DIFF="diff -U1 -"
+
+# prepare to test
 
 rm -rf dir1/ dir2/
 
@@ -108,6 +145,8 @@ cat > dir1/.gitignore << END
 # ignore dir2 (sub)directories
 **/dir2/
 END
+
+# tests
 
 printf .
 $UG -rl                                  Hello dir1 | $DIFF out/dir.out               || ERR "-rl Hello dir1"
@@ -182,8 +221,13 @@ if [ "$have_pcre2" == yes ]; then
     || ERR "-P -iwco -f lorem lorem.latin1.txt"
 fi
 
-printf .
-$UG -Zio Lorem lorem.utf8.txt | $DIFF out/lorem_Lorem-Zio.out  || ERR "-Zio Lorem lorem.utf8.txt"
+for PAT in '' 'Lorem' 'nomatch' ; do
+  FN=`echo "lorem_$PAT" | tr -Cd '[:alnum:]_'`
+  for OPS in '-Zio' '-ioZbest1' ; do
+    printf .
+    $UG $OPS "$PAT" lorem.utf8.txt | $DIFF out/$FN$OPS.out  || ERR "$OPS '$PAT' lorem.utf8.txt"
+  done
+done
 
 printf .
 $UG -ci hello $FILES \
@@ -348,6 +392,11 @@ printf .
 $UG -z -c Hello archive.tar.zip | $DIFF out/archive.tar.zip.out || ERR "-z -c Hello archive.tar.zip"
 printf .
 $UG -z -c Hello archive.zip     | $DIFF out/archive.zip.out     || ERR "-z -c Hello archive.zip"
+printf .
+if [ "$have_7zip" == yes ]; then
+printf .
+$UG -z -c Hello archive.7z      | $DIFF out/archive.7z.out      || ERR "-z -c Hello archive.7z"
+fi
 if [ "$have_libbz2" == yes ]; then
 printf .
 $UG -z -c Hello archive.tbz     | $DIFF out/archive.tbz.out     || ERR "-z -c Hello archive.tbz"
@@ -366,6 +415,14 @@ if [ "$have_libzstd" == yes ]; then
 printf .
 $UG -z -c Hello archive.tzst    | $DIFF out/archive.tzst.out    || ERR "-z -c Hello archive.tzst"
 fi
+if [ "$have_libbrotli" == yes ]; then
+printf .
+$UG -z -c Hello archive.tar.br  | $DIFF out/archive.tar.br.out  || ERR "-z -c Hello archive.tar.br"
+fi
+if [ "$have_libbzip3" == yes ]; then
+printf .
+$UG -z -c Hello archive.tar.bz3 | $DIFF out/archive.tar.bz3.out || ERR "-z -c Hello archive.tar.bz3"
+fi
 fi
 
 if [ "$have_libz" == yes ]; then
@@ -383,6 +440,10 @@ printf .
 $UG -z -c -tShell Hello archive.tar.zip | $DIFF out/archive-t.tar.zip.out || ERR "-z -c -tShell Hello archive.tar.zip"
 printf .
 $UG -z -c -tShell Hello archive.zip     | $DIFF out/archive-t.zip.out     || ERR "-z -c -tShell Hello archive.zip"
+if [ "$have_7zip" == yes ]; then
+printf .
+$UG -z -c -tShell Hello archive.7z      | $DIFF out/archive-t.7z.out      || ERR "-z -c -tShell Hello archive.7z"
+fi
 if [ "$have_libbz2" == yes ]; then
 printf .
 $UG -z -c -tShell Hello archive.tbz     | $DIFF out/archive-t.tbz.out     || ERR "-z -c -tShell Hello archive.tbz"
@@ -400,6 +461,14 @@ fi
 if [ "$have_libzstd" == yes ]; then
 printf .
 $UG -z -c -tShell Hello archive.tzst    | $DIFF out/archive-t.tzst.out    || ERR "-z -c -tShell Hello archive.tzst"
+fi
+if [ "$have_libbrotli" == yes ]; then
+printf .
+$UG -z -c -tShell Hello archive.tar.br  | $DIFF out/archive-t.tar.br.out  || ERR "-z -c -tShell Hello archive.tar.br"
+fi
+if [ "$have_libbzip3" == yes ]; then
+printf .
+$UG -z -c -tShell Hello archive.tar.bz3 | $DIFF out/archive-t.tar.bz3.out || ERR "-z -c -tShell Hello archive.tar.bz3"
 fi
 fi
 

@@ -38,7 +38,7 @@
 #define UGREP_HPP
 
 // ugrep version
-#define UGREP_VERSION "4.3.0"
+#define UGREP_VERSION "4.5.2"
 
 // disable mmap because mmap is almost always slower than the file reading speed improvements since 3.0.0
 #define WITH_NO_MMAP
@@ -158,7 +158,7 @@ inline int chdir(const char *path)
 inline char *getcwd0()
 {
   wchar_t *wcwd = _wgetcwd(NULL, 0);
-  std::string cwd = utf8_encode(wcwd);
+  std::string cwd(utf8_encode(wcwd));
   free(wcwd);
   return strdup(cwd.c_str());
 }
@@ -167,12 +167,12 @@ inline char *getcwd0()
 inline int fopenw_s(FILE **file, const char *filename, const char *mode)
 {
   *file = NULL;
-  std::wstring wfilename = utf8_decode(filename);
+  std::wstring wfilename(utf8_decode(filename));
   HANDLE hFile;
   if (strchr(mode, 'a') == NULL && strchr(mode, 'w') == NULL)
-    hFile = CreateFileW(wfilename.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+    hFile = CreateFileW(wfilename.c_str(), (strchr(mode, '+') == NULL ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE), FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
   else if (strchr(mode, 'a') == NULL)
-    hFile = CreateFileW(wfilename.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    hFile = CreateFileW(wfilename.c_str(), (strchr(mode, '+') == NULL ? GENERIC_WRITE : GENERIC_READ | GENERIC_WRITE), FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
   else
     hFile = CreateFileW(wfilename.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
   if (hFile == INVALID_HANDLE_VALUE)
@@ -211,6 +211,26 @@ inline int fopenw_s(FILE **file, const char *filename, const char *mode)
 
 #ifdef HAVE_SYS_STATVFS_H
 # include <sys/statvfs.h>
+#endif
+
+#ifdef HAVE_SCHED_H
+# include <sched.h>
+#endif
+
+#ifdef HAVE_PTHREAD_H
+# include <pthread.h>
+#endif
+
+#ifdef HAVE_SYS_PARAM_H
+# include <sys/param.h>
+#endif
+
+#ifdef HAVE_SYS_CPUSET_H
+# include <sys/cpuset.h>
+#endif
+
+#ifdef HAVE_SYS_RESOURCE_H
+# include <sys/resource.h>
 #endif
 
 #if defined(HAVE_F_RDAHEAD) || defined(HAVE_O_NOATIME)
@@ -318,9 +338,9 @@ inline const char *utf8skipn(const char *s, size_t n, size_t k)
 // the default GREP_COLORS
 #ifndef DEFAULT_GREP_COLORS
 # ifdef OS_WIN
-#  define DEFAULT_GREP_COLORS "sl=1;37:cx=33:mt=1;31:fn=1;35:ln=1;32:cn=1;32:bn=1;32:se=36"
+#  define DEFAULT_GREP_COLORS "sl=1;37:cx=33:mt=1;31:fn=1;35:ln=1;32:cn=1;32:bn=1;32:se=36:qp=1;32:qe=1;37;41:qr=1;37:qm=1;32:ql=36:qb=1;35"
 # else
-#  define DEFAULT_GREP_COLORS "cx=33:mt=1;31:fn=1;35:ln=1;32:cn=1;32:bn=1;32:se=36"
+#  define DEFAULT_GREP_COLORS "cx=33:mt=1;31:fn=1;35:ln=1;32:cn=1;32:bn=1;32:se=36:qp=1;32:qe=1;37;41:qm=1;32:ql=36:qb=1;35"
 # endif
 #endif
 
@@ -359,7 +379,7 @@ inline const char *utf8skipn(const char *s, size_t n, size_t k)
 
 // color is disabled by default, unless enabled with WITH_COLOR
 #ifdef WITH_COLOR
-# define DEFAULT_COLOR "auto"
+# define DEFAULT_COLOR Static::AUTO
 #else
 # define DEFAULT_COLOR NULL
 #endif
@@ -381,11 +401,11 @@ inline const char *utf8skipn(const char *s, size_t n, size_t k)
 # define DEFAULT_MAX_MMAP_SIZE MAX_MMAP_SIZE
 #endif
 
-// pretty is disabled by default, unless enabled with WITH_PRETTY
+// pretty is disabled by default for ugrep (always enabled by ug), unless enabled with WITH_PRETTY
 #ifdef WITH_PRETTY
-# define DEFAULT_PRETTY true
+# define DEFAULT_PRETTY Static::AUTO
 #else
-# define DEFAULT_PRETTY false
+# define DEFAULT_PRETTY NULL
 #endif
 
 // hidden file and directory search is enabled by default, unless disabled with WITH_HIDDEN
@@ -441,9 +461,17 @@ struct Static {
   // unique address and label to identify standard input path
   static const char *LABEL_STANDARD_INPUT;
 
+  // unique address to identify color and pretty WHEN arguments
+  static const char *NEVER;
+  static const char *ALWAYS;
+  static const char *AUTO;
+
   // ugrep command-line arguments pointing to argv[]
   static const char *arg_pattern;
   static std::vector<const char*> arg_files;
+
+  // number of cores
+  static size_t cores;
 
   // number of concurrent threads for workers
   static size_t threads;
@@ -521,6 +549,13 @@ extern char color_cn[COLORLEN]; // column number
 extern char color_bn[COLORLEN]; // byte offset
 extern char color_se[COLORLEN]; // separator
 
+extern char color_qp[COLORLEN]; // TUI prompt
+extern char color_qe[COLORLEN]; // TUI errors
+extern char color_qr[COLORLEN]; // TUI regex highlight
+extern char color_qm[COLORLEN]; // TUI regex meta symbols highlight
+extern char color_ql[COLORLEN]; // TUI regex bracket list highlight
+extern char color_qb[COLORLEN]; // TUI regex brace highlight
+
 extern char match_ms[COLORLEN];  // --match or --tag: matched text in a selected line
 extern char match_mc[COLORLEN];  // --match or --tag: matched text in a context line
 extern char match_off[COLORLEN]; // --match or --tag: off
@@ -564,6 +599,9 @@ extern void ugrep();
 
 // perform a limited ugrep search on a single file with optional archive part and store up to num results in a vector, may throw an exception
 extern void ugrep_find_text_preview(const char *filename, const char *partname, size_t from_lineno, size_t max, size_t& lineno, size_t& num, std::vector<std::string>& text);
+
+// extract a part from an archive and send to a stream
+extern void ugrep_extract(const char *filename, const char *partname, FILE *output);
 
 extern void warning(const char *message, const char *arg);
 extern void error(const char *message, const char *arg);

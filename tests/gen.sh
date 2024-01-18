@@ -79,7 +79,12 @@ for OPS in '' '-F' '-G' '-P' ; do
   cat lorem | $UG $OPS -iwco --encoding=LATIN1 -f - lorem.latin1.txt > "out/lorem.latin1$OPS-iwco.out"
 done
 
-$UG -Zio Lorem lorem.utf8.txt > out/lorem_Lorem-Zio.out
+for PAT in '' 'Lorem' 'nomatch' ; do
+  FN=`echo "lorem_$PAT" | tr -Cd '[:alnum:]_'`
+  for OPS in '-Zio' '-ioZbest1' ; do
+    $UG $OPS "$PAT" lorem.utf8.txt > out/$FN$OPS.out
+  done
+done
 
 $UG -ci hello $FILES > out/Hello_Hello-ci.out
 $UG -cj hello $FILES > out/Hello_Hello-cj.out
@@ -144,15 +149,18 @@ rm -f archive.*
 ls $FILES | cpio -o --quiet > archive.cpio
 ls $FILES | pax -w -f archive.pax
 tar cf archive.tar $FILES
-compress -c archive.tar > archive.tZ
-gzip  -9 -c archive.tar > archive.tgz
-bzip2 -9 -c archive.tar > archive.tbz
-lzma  -9 -c archive.tar > archive.tlz
-xz    -9 -c archive.tar > archive.txz
-lz4   -9 -c archive.tar > archive.tar.lz4
-zstd  -9 -c archive.tar > archive.tzst
-zip   -9 -q archive.tar.zip archive.tar
-zip   -9 -q archive.zip $FILES
+compress  -c archive.tar > archive.tZ
+gzip   -9 -c archive.tar > archive.tgz
+bzip2  -9 -c archive.tar > archive.tbz
+lzma   -9 -c archive.tar > archive.tlz
+xz     -9 -c archive.tar > archive.txz
+lz4    -9 -c archive.tar > archive.tar.lz4
+zstd   -9 -c archive.tar > archive.tzst
+brotli -9 -c archive.tar > archive.tar.br
+bzip3     -c archive.tar > archive.tar.bz3
+zip    -9 -q archive.tar.zip archive.tar
+zip    -9 -q archive.zip $FILES
+7z         a archive.7z $FILES > /dev/null
 
 tar cfz archive2.tgz archive.tar $FILES archive.tgz
 tar cfz archive3.tgz archive.tgz $FILES archive2.tgz
@@ -164,11 +172,14 @@ $UG -z -c Hello archive.tgz     > out/archive.tgz.out
 $UG -z -c Hello archive.tZ      > out/archive.tZ.out
 $UG -z -c Hello archive.tar.zip > out/archive.tar.zip.out
 $UG -z -c Hello archive.zip     > out/archive.zip.out
+$UG -z -c Hello archive.7z      > out/archive.7z.out
 $UG -z -c Hello archive.tbz     > out/archive.tbz.out
 $UG -z -c Hello archive.tlz     > out/archive.tlz.out
 $UG -z -c Hello archive.txz     > out/archive.txz.out
 $UG -z -c Hello archive.tar.lz4 > out/archive.tar.lz4.out
 $UG -z -c Hello archive.tzst    > out/archive.tzst.out
+$UG -z -c Hello archive.tar.br  > out/archive.tar.br.out
+$UG -z -c Hello archive.tar.bz3 > out/archive.tar.bz3.out
 
 $UG -z -c -tShell Hello archive.cpio    > out/archive-t.cpio.out
 $UG -z -c -tShell Hello archive.pax     > out/archive-t.pax.out
@@ -177,11 +188,14 @@ $UG -z -c -tShell Hello archive.tgz     > out/archive-t.tgz.out
 $UG -z -c -tShell Hello archive.tZ      > out/archive-t.tZ.out
 $UG -z -c -tShell Hello archive.tar.zip > out/archive-t.tar.zip.out
 $UG -z -c -tShell Hello archive.zip     > out/archive-t.zip.out
+$UG -z -c -tShell Hello archive.7z      > out/archive-t.7z.out
 $UG -z -c -tShell Hello archive.tbz     > out/archive-t.tbz.out
 $UG -z -c -tShell Hello archive.tlz     > out/archive-t.tlz.out
 $UG -z -c -tShell Hello archive.txz     > out/archive-t.txz.out
 $UG -z -c -tShell Hello archive.tar.lz4 > out/archive-t.tar.lz4.out
 $UG -z -c -tShell Hello archive.tzst    > out/archive-t.tzst.out
+$UG -z -c -tShell Hello archive.tar.br  > out/archive-t.tar.br.out
+$UG -z -c -tShell Hello archive.tar.bz3 > out/archive-t.tar.bz3.out
 
 $UG --zmax=2 -z -c Hello archive2.tgz         > out/archive2.tgz.out
 $UG --zmax=3 -z -c Hello archive3.tgz         > out/archive3.tgz.out

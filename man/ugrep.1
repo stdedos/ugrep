@@ -1,21 +1,21 @@
-.TH UGREP "1" "October 07, 2023" "ugrep 4.3.0" "User Commands"
+.TH UGREP "1" "January 09, 2024" "ugrep 4.5.2" "User Commands"
 .SH NAME
 \fBugrep\fR, \fBug\fR -- file pattern searcher
 .SH SYNOPSIS
 .B ugrep
 [\fIOPTIONS\fR] [\fB-i\fR] [\fB-Q\fR|\fIPATTERN\fR] [\fB-e\fR \fIPATTERN\fR] [\fB-N\fR \fIPATTERN\fR] [\fB-f\fR \fIFILE\fR]
       [\fB-F\fR|\fB-G\fR|\fB-P\fR|\fB-Z\fR] [\fB-U\fR] [\fB-m\fR [\fIMIN,\fR][\fIMAX\fR]] [\fB--bool\fR [\fB--files\fR|\fB--lines\fR]]
-      [\fB-r\fR|\fB-R\fR|\fB-1\fR|...|\fB-9\fR|\fB--10\fR|...] [\fB-t\fR \fITYPES\fR] [\fB-g\fR \fIGLOBS\fR] [\fB--sort\fR[=\fIKEY\fR]]
+      [\fB-r\fR|\fB-R\fR|\fB-1\fR|...|\fB-9\fR|\fB-10\fR|...] [\fB-t\fR \fITYPES\fR] [\fB-g\fR \fIGLOBS\fR] [\fB--sort\fR[=\fIKEY\fR]]
       [\fB-l\fR|\fB-c\fR] [\fB-o\fR] [\fB-n\fR] [\fB-k\fR] [\fB-b\fR] [\fB-A\fR \fINUM\fR] [\fB-B\fR \fINUM\fR] [\fB-C \fR\fINUM\fR] [\fB-y\fR]
       [\fB--color\fR[=\fIWHEN\fR]|\fB--colour\fR[=\fIWHEN\fR]] [\fB--pretty\fR] [\fB--pager\fR[=\fICOMMAND\fR]]
       [\fB--hexdump\fR|\fB--csv\fR|\fB--json\fR|\fB--xml\fR] [\fB-I\fR] [\fB-z\fR] [\fB--zmax\fR=\fINUM\fR] [\fIFILE\fR \fI...\fR]
 .SH DESCRIPTION
 The \fBugrep\fR utility searches any given input files, selecting lines that
-match one or more patterns.  By default, a pattern matches an input line if the
-regular expression (RE) matches the input line.  A pattern matches multiple
-input lines if the RE in the pattern matches one or more newlines in the input.
-An empty pattern matches every line.  Each input line that matches at least one
-of the patterns is written to the standard output.
+match one or more patterns specified as regular expressions or as fixed
+strings.  A pattern matches multiple input lines when the pattern's regular
+expression matches one or more newlines.  An empty pattern matches every line.
+Each input line that matches at least one of the patterns is written to the
+standard output.
 .PP
 The \fBug\fR command is intended for interactive searching, using a .ugrep
 configuration file located in the working directory or home directory, see
@@ -28,20 +28,22 @@ and image metadata, when the corresponding filter tools are installed.
 .PP
 A list of matching files is produced with option \fB-l\fR
 (\fB--files-with-matches\fR).  Option \fB-c\fR (\fB--count\fR) counts the
-number of matching lines.  Combine with option \fB-o\fR to count the total
-number of matches.  Combine with option \fB-m1,\fR (\fB--min-count=1\fR) to
-omit zero matches.
+number of matching lines.  When combined with option \fB-o\fR, counts the total
+number of matches.  When combined with option \fB-m1,\fR (\fB--min-count=1\fR),
+skips files with zero matches.
 .PP
 The default pattern syntax is an extended form of the POSIX ERE syntax, same as
 option \fB-E\fR (\fB--extended-regexp\fR).  Try \fBug --help regex\fR for help
 with pattern syntax and how to use logical connectives to specify Boolean
-search queries with option \fB-%\fR (\fB--bool\fR).  Options \fB-F\fR
+search queries with option \fB-%\fR (\fB--bool\fR) to match lines and \fB-%%\fR
+(\fB--bool --files\fR) to match files.  Options \fB-F\fR
 (\fB--fixed-strings\fR), \fB-G\fR (\fB--basic-regexp\fR) and \fB-P\fR
 (\fB--perl-regexp\fR) specify other pattern syntaxes.
 .PP
-Option \fB-i\fR (\fB--ignore-case\fR) ignores case in ASCII patterns.  Combine
-with option \fB-P\fR for case-insensitive Unicode matching.  Option \fB-j\fR
-(\fB--smart-case\fR) enables \fB-i\fR only if the search patterns are specified
+Option \fB-i\fR (\fB--ignore-case\fR) ignores case in ASCII patterns.  When
+combined with option \fB-P\fR, ignores case in Unicode patterns.  Option
+\fB-j\fR (\fB--smart-case\fR) enables \fB-i\fR only if the search patterns are
+specified
 in lower case.
 .PP
 Fuzzy (approximate) search is specified with option \fB-Z\fR (\fB--fuzzy\fR)
@@ -52,10 +54,9 @@ Note that pattern `.' matches any non-newline character.  Pattern `\\n' matches
 a newline character.  Multiple lines may be matched with patterns that match
 one or more newline characters.
 .PP
-Empty-matching patterns do not match all lines.  For example, the pattern `a*'
-will match one or more a's.  The single exception to this rule is the empty
-pattern "", which matches all lines.  Option \fB-Y\fR forces empty matches for
-compatibility with other grep tools.  
+The empty pattern "" matches all lines.  Other empty-matching patterns do not.
+For example, the pattern `a*' will match one or more a's.  Option \fB-Y\fR
+forces empty matches for compatibility with other grep tools.  
 .PP
 Option \fB-f\fR \fIFILE\fR matches patterns specified in \fIFILE\fR.
 .PP
@@ -99,9 +100,9 @@ the contents of compressed files and archives stored within archives up to
 \fINUM\fR levels.
 .PP
 A query terminal user interface (TUI) is opened with \fB-Q\fR (\fB--query\fR)
-to interactively specify search patterns and view search results.  Note that a
-\fIPATTERN\fR argument cannot be specified in this case.  To specify one or
-more patterns with \fB-Q\fR to start searching, use \fB-e PATTERN\fR.
+to interactively specify search patterns and view search results.  A
+\fIPATTERN\fR argument requires \fB-e PATTERN\fR to start the query TUI with
+the specified pattern.
 .PP
 Output to a terminal for viewing is enhanced with \fB--pretty\fR, which is
 enabled by default with the \fBug\fR command.
@@ -136,11 +137,11 @@ the \fB\-\-binary\-files\fR=text option.  This option might output binary
 garbage to the terminal, which can have problematic consequences if
 the terminal driver interprets some of it as commands.
 .TP
-\fB\-\-and\fR [\fB\-e\fR] PATTERN ... \fB\-e\fR \fIPATTERN\fR
-Specify additional patterns to match.  Patterns must be specified
-with \fB\-e\fR.  Each \fB\-e\fR \fIPATTERN\fR following this option is considered an
-alternative pattern to match, i.e. each \fB\-e\fR is interpreted as an OR
-pattern.  For example, \fB\-e\fR \fIA\fR \fB\-e\fR \fIB\fR \fB\-\-and\fR \fB\-e\fR \fIC\fR \fB\-e\fR \fID\fR matches lines with
+\fB\-\-and\fR [\fB\-e\fR] PATTERN
+Specify additional PATTERN that must match.  Additional \fB\-e\fR \fIPATTERN\fR
+following this option is considered an alternative pattern to
+match, i.e. each \fB\-e\fR is interpreted as an OR pattern enclosed within
+the AND.  For example, \fB\-e\fR \fIA\fR \fB\-e\fR \fIB\fR \fB\-\-and\fR \fB\-e\fR \fIC\fR \fB\-e\fR \fID\fR matches lines with
 (`A' or `B') and (`C' or `D').  Note that multiple \fB\-e\fR \fIPATTERN\fR are
 alternations that bind more tightly together than \fB\-\-and\fR.  Option
 \fB\-\-stats\fR displays the search patterns applied.  See also options
@@ -156,8 +157,8 @@ specified, output the match with context to fit NUM columns before
 the match or shortens the match.  See also options \fB\-A\fR, \fB\-C\fR and \fB\-y\fR.
 .TP
 \fB\-b\fR, \fB\-\-byte\-offset\fR
-The offset in bytes of a matched line is displayed in front of the
-respective matched line.  If \fB\-u\fR is specified, displays the offset
+The offset in bytes of a pattern match is displayed in front of the
+respective matched line.  When \fB\-u\fR is specified, displays the offset
 for each pattern matched on the same line.  Byte offsets are exact
 for ASCII, UTF\-8 and raw binary input.  Otherwise, the byte offset
 in the UTF\-8 normalized input is displayed.
@@ -175,7 +176,7 @@ it as commands.  `hex' reports all matches in hexadecimal.
 matches alone.  A match is considered binary when matching a zero
 byte or invalid UTF.  Short options are \fB\-a\fR, \fB\-I\fR, \fB\-U\fR, \fB\-W\fR and \fB\-X\fR.
 .TP
-\fB\-\-bool\fR, \fB\-%\fR
+\fB\-\-bool\fR, \fB\-%\fR, \fB\-%\fR%
 Specifies Boolean query patterns.  A Boolean query pattern is
 composed of `AND', `OR', `NOT' operators and grouping with `(' `)'.
 Spacing between subpatterns is the same as `AND', `|' is the same
@@ -187,20 +188,20 @@ proper spacing.  For example, \fB\-\-bool\fR 'A OR B AND C OR D' matches
 lines with (`A' or `B') and (`C' or `D'), \fB\-\-bool\fR 'A AND NOT B'
 matches lines with `A' without `B'.  Quoted subpatterns are matched
 literally as strings.  For example, \fB\-\-bool\fR 'A "AND"|"OR"' matches
-lines with `A' and also either `AND' or `OR'.  Parenthesis are used
+lines with `A' and also either `AND' or `OR'.  Parentheses are used
 for grouping.  For example, \fB\-\-bool\fR '(A B)|C' matches lines with `A'
 and `B', or lines with `C'.  Note that all subpatterns in a Boolean
 query pattern are regular expressions, unless \fB\-F\fR is specified.
 Options \fB\-E\fR, \fB\-F\fR, \fB\-G\fR, \fB\-P\fR and \fB\-Z\fR can be combined with \fB\-\-bool\fR to match
 subpatterns as strings or regular expressions (\fB\-E\fR is the default.)
-This option does not apply to \fB\-f\fR \fIFILE\fR patterns.  Option \fB\-\-stats\fR
-displays the search patterns applied.  See also options \fB\-\-and\fR,
+This option does not apply to \fB\-f\fR \fIFILE\fR patterns.  The double short
+option \fB\-%\fR% enables options \fB\-\-bool\fR \fB\-\-files\fR.  Option \fB\-\-stats\fR displays
+the Boolean search patterns applied.  See also options \fB\-\-and\fR,
 \fB\-\-andnot\fR, \fB\-\-not\fR, \fB\-\-files\fR and \fB\-\-lines\fR.
 .TP
 \fB\-\-break\fR
 Adds a line break between results from different files.  This
-option is enabled by \fB\-\-pretty\fR when the output is sent to a
-terminal.
+option is enabled by \fB\-\-heading\fR.
 .TP
 \fB\-C\fR \fINUM\fR, \fB\-\-context\fR=\fINUM\fR
 Output NUM lines of leading and trailing context surrounding each
@@ -218,19 +219,22 @@ matching files without outputting zero matches.  If \fB\-\-tree\fR is
 specified, outputs directories in a tree\-like format.
 .TP
 \fB\-\-color\fR[=\fIWHEN\fR], \fB\-\-colour\fR[=\fIWHEN\fR]
-Mark up the matching text with the expression stored in the
-GREP_COLOR or GREP_COLORS environment variable.  WHEN can be
-`never', `always', or `auto', where `auto' marks up matches only
-when output on a terminal.  The default is `auto'.
+Mark up the matching text with the colors specified with option
+\fB\-\-colors\fR or the GREP_COLOR or GREP_COLORS environment variable.
+WHEN can be `never', `always', or `auto', where `auto' marks up
+matches only when output on a terminal.  The default is `auto'.
 .TP
 \fB\-\-colors\fR=\fICOLORS\fR, \fB\-\-colours\fR=\fICOLORS\fR
 Use COLORS to mark up text.  COLORS is a colon\-separated list of
 one or more parameters `sl=' (selected line), `cx=' (context line),
 `mt=' (matched text), `ms=' (match selected), `mc=' (match
 context), `fn=' (file name), `ln=' (line number), `cn=' (column
-number), `bn=' (byte offset), `se=' (separator).  Parameter values
-are ANSI SGR color codes or `k' (black), `r' (red), `g' (green),
-`y' (yellow), `b' (blue), `m' (magenta), `c' (cyan), `w' (white).
+number), `bn=' (byte offset), `se=' (separator), `qp=' (TUI
+prompt), `qe=' (TUI errors), `qr=' (TUI regex), `qm=' (TUI regex
+meta characters), `ql=' (TUI regex lists and literals), `qb=' (TUI
+regex braces).  Parameter values are ANSI SGR color codes or `k'
+(black), `r' (red), `g' (green), `y' (yellow), `b' (blue), `m'
+(magenta), `c' (cyan), `w' (white), or leave empty for no color.
 Upper case specifies background colors.  A `+' qualifies a color as
 bright.  A foreground and a background color may be combined with
 font properties `n' (normal), `f' (faint), `h' (highlight), `i'
@@ -274,11 +278,11 @@ equivalent to the \fB\-R\fR option.
 \fB\-\-delay\fR=\fIDELAY\fR
 Set the default \fB\-Q\fR key response delay.  Default is 3 for 300ms.
 .TP
-\fB\-\-depth\fR=[\fIMIN\fR,][\fIMAX\fR], \fB\-1\fR, \fB\-2\fR, \fB\-3\fR, ... \fB\-9\fR, \fB\-\-10\fR, \fB\-\-11\fR, \fB\-\-12\fR, ...
+\fB\-\-depth\fR=[\fIMIN\fR,][\fIMAX\fR], \fB\-1\fR, \fB\-2\fR, \fB\-3\fR, ... \fB\-9\fR, \fB\-1\fR0, \fB\-1\fR1, ...
 Restrict recursive searches from MIN to MAX directory levels deep,
 where \fB\-1\fR (\fB\-\-depth\fR=1) searches the specified path without recursing
-into subdirectories.  Note that \fB\-3\fR \fB\-5\fR, \fB\-3\fR\-5, and \fB\-3\fR5 search 3 to 5
-levels deep.  Enables \fB\-r\fR if \fB\-R\fR or \fB\-r\fR is not specified.
+into subdirectories.  The short forms \fB\-3\fR \fB\-5\fR, \fB\-3\fR\-5 and \fB\-3\fR,5 search 3
+to 5 levels deep.  Enables \fB\-r\fR if \fB\-R\fR or \fB\-r\fR is not specified.
 .TP
 \fB\-\-dotall\fR
 Dot `.' in regular expressions matches anything, including newline.
@@ -289,12 +293,12 @@ Interpret patterns as extended regular expressions (EREs). This is
 the default.
 .TP
 \fB\-e\fR \fIPATTERN\fR, \fB\-\-regexp\fR=\fIPATTERN\fR
-Specify a PATTERN used during the search of the input: an input
-line is selected if it matches any of the specified patterns.
-Note that longer patterns take precedence over shorter patterns.
-This option is most useful when multiple \fB\-e\fR options are used to
-specify multiple patterns, when a pattern begins with a dash (`\-'),
-to specify a pattern after option \fB\-f\fR or after the FILE arguments.
+Specify a PATTERN to search the input.  An input line is selected
+if it matches any of the specified patterns.  Note that longer
+patterns take precedence over shorter patterns.  This option is
+most useful when multiple \fB\-e\fR options are used to specify multiple
+patterns, when a pattern begins with a dash (`\-'), to specify a
+pattern after option \fB\-f\fR or after the FILE arguments.
 .TP
 \fB\-\-encoding\fR=\fIENCODING\fR
 The encoding format of the input.  The default ENCODING is binary
@@ -311,15 +315,14 @@ PATTERN matching (text matching is the default.)  ENCODING can be:
 `KOI8\-RU'.
 .TP
 \fB\-\-exclude\fR=\fIGLOB\fR
-Skip files whose name matches GLOB using wildcard matching, same as
-\fB\-g\fR ^GLOB.  GLOB can use **, *, ?, and [...] as wildcards and \\ to
-quote a wildcard or backslash character literally.  When GLOB
-contains a `/', full pathnames are matched.  Otherwise basenames
-are matched.  When GLOB ends with a `/', directories are excluded
-as if \fB\-\-exclude\-dir\fR is specified.  Otherwise files are excluded.
-Note that \fB\-\-exclude\fR patterns take priority over \fB\-\-include\fR patterns.
-GLOB should be quoted to prevent shell globbing.  This option may
-be repeated.
+Exclude files whose name matches GLOB, same as \fB\-g\fR ^GLOB.  GLOB can
+use **, *, ?, and [...] as wildcards and \\ to quote a wildcard or
+backslash character literally.  When GLOB contains a `/', full
+pathnames are matched.  Otherwise basenames are matched.  When GLOB
+ends with a `/', directories are excluded as if \fB\-\-exclude\-dir\fR is
+specified.  Otherwise files are excluded.  Note that \fB\-\-exclude\fR
+patterns take priority over \fB\-\-include\fR patterns.  GLOB should be
+quoted to prevent shell globbing.  This option may be repeated.
 .TP
 \fB\-\-exclude\-dir\fR=\fIGLOB\fR
 Exclude directories whose name matches GLOB from recursive
@@ -343,10 +346,10 @@ starting with a `#' and empty lines in FILE are ignored.  When FILE
 is a `\-', standard input is read.  This option may be repeated.
 .TP
 \fB\-\-exclude\-fs\fR=\fIMOUNTS\fR
-Exclude file systems specified by MOUNTS from recursive searches,
-MOUNTS is a comma\-separated list of mount points or pathnames of
-directories on file systems.  Note that \fB\-\-exclude\-fs\fR mounts take
-priority over \fB\-\-include\-fs\fR mounts.  This option may be repeated.
+Exclude file systems specified by MOUNTS from recursive searches.
+MOUNTS is a comma\-separated list of mount points or pathnames to
+directories.  Note that \fB\-\-exclude\-fs\fR=\fIMOUNTS\fR take priority over
+\fB\-\-include\-fs\fR=\fIMOUNTS\fR.  This option may be repeated.
 .TP
 \fB\-F\fR, \fB\-\-fixed\-strings\fR
 Interpret pattern as a set of fixed strings, separated by newlines,
@@ -398,12 +401,11 @@ is also enabled.  Context options \fB\-A\fR, \fB\-B\fR, \fB\-C\fR and \fB\-y\fR 
 Spacing (blanks and tabs) in regular expressions are ignored.
 .TP
 \fB\-G\fR, \fB\-\-basic\-regexp\fR
-Interpret patterns as basic regular expressions (BREs), i.e. make
-ugrep behave as traditional grep.
+Interpret patterns as basic regular expressions (BREs).
 .TP
 \fB\-g\fR \fIGLOBS\fR, \fB\-\-glob\fR=\fIGLOBS\fR, \fB\-\-iglob\fR=\fIGLOBS\fR
-Search only files whose name matches the specified comma\-separated
-list of GLOBS, same as \fB\-\-include\fR='glob' for each `glob' in GLOBS.
+Only search files whose name matches the specified comma\-separated
+list of GLOBS, same as \fB\-\-include\fR=glob for each `glob' in GLOBS.
 When a `glob' is preceded by a `!' or a `^', skip files whose name
 matches `glob', same as \fB\-\-exclude\fR='glob'.  When `glob' contains a
 `/', full pathnames are matched.  Otherwise basenames are matched.
@@ -482,15 +484,14 @@ arguments are never ignored.  This option may be repeated to
 specify additional files.
 .TP
 \fB\-\-include\fR=\fIGLOB\fR
-Search only files whose name matches GLOB using wildcard matching,
-same as \fB\-g\fR \fIGLOB\fR.  GLOB can use **, *, ?, and [...] as wildcards and
-\\ to quote a wildcard or backslash character literally.  When GLOB
-contains a `/', full pathnames are matched.  Otherwise basenames
-are matched.  When GLOB ends with a `/', directories are included
-as if \fB\-\-include\-dir\fR is specified.  Otherwise files are included.
-Note that \fB\-\-exclude\fR patterns take priority over \fB\-\-include\fR patterns.
-GLOB should be quoted to prevent shell globbing.  This option may
-be repeated.
+Only search files whose name matches GLOB, same as \fB\-g\fR \fIGLOB\fR.  GLOB
+can use **, *, ?, and [...] as wildcards and \\ to quote a wildcard
+or backslash character literally.  When GLOB contains a `/', full
+pathnames are matched.  Otherwise basenames are matched.  When GLOB
+ends with a `/', directories are included as if \fB\-\-include\-dir\fR is
+specified.  Otherwise files are included.  Note that \fB\-\-exclude\fR
+patterns take priority over \fB\-\-include\fR patterns.  GLOB should be
+quoted to prevent shell globbing.  This option may be repeated.
 .TP
 \fB\-\-include\-dir\fR=\fIGLOB\fR
 Only directories whose name matches GLOB are included in recursive
@@ -517,20 +518,23 @@ may be repeated.
 \fB\-\-include\-fs\fR=\fIMOUNTS\fR
 Only file systems specified by MOUNTS are included in recursive
 searches.  MOUNTS is a comma\-separated list of mount points or
-pathnames of directories on file systems.  \fB\-\-include\-fs\fR=. restricts
-recursive searches to the file system of the working directory
-only.  Note that \fB\-\-exclude\-fs\fR mounts take priority over
-\fB\-\-include\-fs\fR mounts.  This option may be repeated.
+pathnames to directories.  \fB\-\-include\-fs\fR=. restricts recursive
+searches to the file system of the working directory only.  Note
+that \fB\-\-exclude\-fs\fR=\fIMOUNTS\fR take priority over \fB\-\-include\-fs\fR=\fIMOUNTS\fR.
+This option may be repeated.
 .TP
 \fB\-\-index\fR
-Perform indexing\-based search on files indexed with ugrep\-indexer.
-Recursive searches are performed by skipping non\-matching files.
-Binary files are skipped with option \fB\-I\fR.  Note that the start\-up
-time to search is increased, which may be significant when complex
-search patterns are specified that contain large Unicode character
-classes with `*' or `+' repeats, which should be avoided.  Option
-\fB\-U\fR (\fB\-\-ascii\fR) improves performance.  Option \fB\-\-stats\fR=vm displays a
-detailed indexing\-based search report.  This is a beta feature.
+Perform index\-based recursive search.  This option assumes, but
+does not require, that files are indexed with ugrep\-indexer.  This
+option accelerates recursive searching by skipping non\-matching
+files, archives and compressed files when indexed.  Significant
+acceleration may be achieved on cold (not file\-cached) and large
+file systems, or any file system that is slow to search.  Note that
+the start\-up time to search is increased, which may be significant
+when complex search patterns are specified that contain large
+Unicode character classes combined with `*' or `+' repeats, which
+should be avoided.  Option \fB\-U\fR (\fB\-\-ascii\fR) improves performance.
+Option \fB\-\-stats\fR displays an index search report.
 .TP
 \fB\-J\fR \fINUM\fR, \fB\-\-jobs\fR=\fINUM\fR
 Specifies the number of threads spawned to search files.  By
@@ -539,8 +543,8 @@ simultaneously.  \fB\-J\fR1 disables threading: files are searched in the
 same order as specified.
 .TP
 \fB\-j\fR, \fB\-\-smart\-case\fR
-Perform case insensitive matching like option \fB\-i\fR, unless a pattern
-is specified with a literal ASCII upper case letter.
+Perform case insensitive matching, unless a pattern is specified
+with a literal upper case ASCII letter.
 .TP
 \fB\-\-json\fR
 Output file matches in JSON.  If \fB\-H\fR, \fB\-n\fR, \fB\-k\fR, or \fB\-b\fR is specified,
@@ -550,9 +554,9 @@ additional values are output.  See also options \fB\-\-format\fR and \fB\-u\fR.
 Start searching at line MIN, stop at line MAX when specified.
 .TP
 \fB\-k\fR, \fB\-\-column\-number\fR
-The column number of a matched pattern is displayed in front of the
+The column number of a pattern match is displayed in front of the
 respective matched line, starting at column 1.  Tabs are expanded
-when columns are counted, see also option \fB\-\-tabs\fR.
+in counting columns, see also option \fB\-\-tabs\fR.
 .TP
 \fB\-L\fR, \fB\-\-files\-without\-match\fR
 Only the names of files not containing selected lines are written
@@ -579,11 +583,10 @@ a suffix.  The default value is `(standard input)'.
 Force output to be line buffered instead of block buffered.
 .TP
 \fB\-\-lines\fR
-Apply Boolean queries to match lines, the opposite of \fB\-\-files\fR.
-This is the default Boolean mode to match specific lines.
+Boolean line matching mode for option \fB\-\-bool\fR, the default mode.
 .TP
 \fB\-M\fR \fIMAGIC\fR, \fB\-\-file\-magic\fR=\fIMAGIC\fR
-Only files matching the signature pattern MAGIC are searched.  The
+Only search files matching the magic signature pattern MAGIC.  The
 signature "magic bytes" at the start of a file are compared to
 the MAGIC regex pattern.  When matching, the file will be searched.
 When MAGIC is preceded by a `!' or a `^', skip files with matching
@@ -594,7 +597,8 @@ search path is read, making searches potentially more expensive.
 \fB\-m\fR [\fIMIN\fR,][\fIMAX\fR], \fB\-\-min\-count\fR=\fIMIN\fR, \fB\-\-max\-count\fR=\fIMAX\fR
 Require MIN matches, stop after MAX matches when specified.  Output
 MIN to MAX matches.  For example, \fB\-m\fR1 outputs the first match and
-\fB\-c\fRm1, (with a comma) counts non\-zero matches.  See also option \fB\-K\fR.
+\fB\-c\fRm1, (with a comma) counts nonzero matches.  If \fB\-u\fR is specified,
+each individual match counts.  See also option \fB\-K\fR.
 .TP
 \fB\-\-match\fR
 Match all input.  Same as specifying an empty pattern to search.
@@ -610,13 +614,11 @@ under certain conditions to improve performance.  When MAX is
 specified, use up to MAX mmap memory per thread.
 .TP
 \fB\-N\fR \fIPATTERN\fR, \fB\-\-neg\-regexp\fR=\fIPATTERN\fR
-Specify a negative PATTERN used during the search of the input: an
-input line is selected only if it matches the specified patterns
-unless it matches the negative PATTERN.  Same as \fB\-e\fR (?^PATTERN).
-Negative pattern matches are essentially removed before any other
-patterns are matched.  Note that longer patterns take precedence
-over shorter patterns.  Option \fB\-N\fR cannot be specified with \fB\-P\fR.
-This option may be repeated.
+Specify a negative PATTERN to reject specific \fB\-e\fR \fIPATTERN\fR matches
+with a counter pattern.  Note that longer patterns take precedence
+over shorter patterns, i.e. a negative pattern must be of the same
+length or longer to reject matching patterns.  Option \fB\-N\fR cannot be
+specified with \fB\-P\fR.  This option may be repeated.
 .TP
 \fB\-n\fR, \fB\-\-line\-number\fR
 Each output line is preceded by its relative line number in the
@@ -635,34 +637,30 @@ displays the search patterns applied.  See also options \fB\-\-and\fR,
 \fB\-\-andnot\fR, \fB\-\-bool\fR, \fB\-\-files\fR and \fB\-\-lines\fR.
 .TP
 \fB\-O\fR \fIEXTENSIONS\fR, \fB\-\-file\-extension\fR=\fIEXTENSIONS\fR
-Search only files whose filename extensions match the specified
-comma\-separated list of EXTENSIONS, same as \fB\-\-include\fR='*.ext' for
-each `ext' in EXTENSIONS.  When an `ext' is preceded by a `!' or a
-`^', skip files whose filename extensions matches `ext', same as
-\fB\-\-exclude\fR='*.ext'.  This option may be repeated and may be combined
-with options \fB\-g\fR, \fB\-M\fR and \fB\-t\fR to expand the recursive search.
+Only search files whose filename extensions match the specified
+comma\-separated list of EXTENSIONS, same as \fB\-g\fR '*.ext' for each
+`ext' in EXTENSIONS.  When an `ext' is preceded by a `!' or a `^',
+skip files whose filename extensions matches `ext', same as
+\fB\-g\fR '^*.ext'.  This option may be repeated and may be combined with
+options \fB\-g\fR, \fB\-M\fR and \fB\-t\fR to expand the recursive search.
 .TP
 \fB\-o\fR, \fB\-\-only\-matching\fR
-Output only the matching part of lines.  Output additional matches
-on the same line with `+' as the field separator.  When multiple
-lines match a pattern, output the matching lines with `|' as the
-field separator.  If \fB\-A\fR, \fB\-B\fR or \fB\-C\fR is specified, fits the match and
-its context on a line within the specified number of columns.
+Only the matching part of a pattern match is output.  If \fB\-A\fR, \fB\-B\fR or
+\fB\-C\fR is specified, fits the match and its context on a line within
+the specified number of columns.
 .TP
 \fB\-\-only\-line\-number\fR
-The line number of the matching line in the file is output without
-displaying the match.  The line number counter is reset for each
-file processed.
+Only the line number of a matching line is output.  The line number
+counter is reset for each file processed.
 .TP
-\fB\-\-files\fR
-Apply Boolean queries to match files, the opposite of \fB\-\-lines\fR.  A
-file matches if all Boolean conditions are satisfied by the lines
-matched in the file.  For example, \fB\-\-files\fR \fB\-e\fR \fIA\fR \fB\-\-and\fR \fB\-e\fR \fIB\fR \fB\-e\fR \fIC\fR
-\fB\-\-andnot\fR \fB\-e\fR \fID\fR matches a file if some lines match `A' and some lines
-match (`B' or `C') and no line in the file matches `D'.  May also
-be specified as \fB\-\-files\fR \fB\-\-bool\fR 'A B|C \fB\-D\fR'.  Option \fB\-v\fR cannot be
-specified with \fB\-\-files\fR.  See also options \fB\-\-and\fR, \fB\-\-andnot\fR, \fB\-\-not\fR,
-\fB\-\-bool\fR and \fB\-\-lines\fR.
+\fB\-\-files\fR, \fB\-%\fR%
+Boolean file matching mode, the opposite of \fB\-\-lines\fR.  When combined
+with option \fB\-\-bool\fR, matches a file if all Boolean conditions are
+satisfied.  For example, \fB\-\-bool\fR \fB\-\-files\fR 'A B|C \fB\-D\fR' matches a file
+if some lines match `A', and some lines match either `B' or `C',
+and no line matches `D'.  See also options \fB\-\-and\fR, \fB\-\-andnot\fR, \fB\-\-not\fR,
+\fB\-\-bool\fR and \fB\-\-lines\fR.  The double short option \fB\-%\fR% enables options
+\fB\-\-bool\fR \fB\-\-files\fR.
 .TP
 \fB\-P\fR, \fB\-\-perl\-regexp\fR
 Interpret PATTERN as a Perl regular expression using PCRE2.
@@ -678,9 +676,10 @@ When output is sent to the terminal, uses COMMAND to page through
 the output.  COMMAND defaults to environment variable PAGER when
 defined or `less'.  Enables \fB\-\-heading\fR and \fB\-\-line\-buffered\fR.
 .TP
-\fB\-\-pretty\fR
+\fB\-\-pretty\fR[=\fIWHEN\fR]
 When output is sent to a terminal, enables \fB\-\-color\fR, \fB\-\-heading\fR, \fB\-n\fR,
-\fB\-\-sort\fR, \fB\-\-tree\fR and \fB\-T\fR when not explicitly disabled.
+\fB\-\-sort\fR, \fB\-\-tree\fR and \fB\-T\fR when not explicitly disabled.  WHEN can be
+`never', `always', or `auto'.  The default is `auto'.
 .TP
 \fB\-Q\fR[=\fIDELAY\fR], \fB\-\-query\fR[=\fIDELAY\fR]
 Query mode: start a TUI to perform interactive searches.  This mode
@@ -705,7 +704,7 @@ Quiet mode: suppress all output.  Only search a file until a match
 has been found.
 .TP
 \fB\-R\fR, \fB\-\-dereference\-recursive\fR
-Recursively read all files under each directory.  Follow symbolic
+Recursively read all files under each directory, following symbolic
 links to files and directories, unlike \fB\-r\fR.
 .TP
 \fB\-r\fR, \fB\-\-recursive\fR
@@ -715,29 +714,35 @@ arguments are specified and input is read from a terminal,
 recursive searches are performed as if \fB\-r\fR is specified.
 .TP
 \fB\-\-replace\fR=\fIFORMAT\fR
-Replace matching patterns in the output by the specified FORMAT
-with `%' fields.  If \fB\-P\fR is specified, FORMAT may include `%1' to
-`%9', `%[\fINUM\fR]#' and `%[\fINAME\fR]#' to output group captures.  A `%%'
-outputs `%' and `%~' outputs a newline.  See option \fB\-\-format\fR,
-`ugrep \fB\-\-help\fR format' and `man ugrep' section FORMAT for details.
+Replace matching patterns in the output by FORMAT with `%' fields.
+If \fB\-P\fR is specified, FORMAT may include `%1' to `%9', `%[\fINUM\fR]#' and
+`%[\fINAME\fR]#' to output group captures.  A `%%' outputs `%' and `%~'
+outputs a newline.  See also option \fB\-\-format\fR, `ugrep \fB\-\-help\fR format'
+and `man ugrep' section FORMAT for details.
 .TP
 \fB\-S\fR, \fB\-\-dereference\-files\fR
 When \fB\-r\fR is specified, follow symbolic links to files, but not to
 directories.  The default is not to follow symbolic links.
 .TP
 \fB\-s\fR, \fB\-\-no\-messages\fR
-Silent mode: nonexistent and unreadable files are ignored, i.e.
+Silent mode: nonexistent and unreadable files are ignored and
 their error messages and warnings are suppressed.
 .TP
-\fB\-\-save\-config\fR[=\fIFILE\fR]
-Save configuration FILE.  By default `.ugrep' is saved.  If FILE is
-a `\-', write the configuration to standard output.
+\fB\-\-save\-config\fR[=\fIFILE\fR] [\fIOPTIONS\fR]
+Save configuration FILE to include OPTIONS.  Update FILE when
+first loaded with \fB\-\-config\fR=\fIFILE\fR.  The default FILE is `.ugrep',
+which is automatically loaded by the ug command.  When FILE is a
+`\-', writes the configuration to standard output.  Only part of the
+OPTIONS are saved that do not cause searches to fail when combined
+with other options.  Additional options may be specified by editing
+the saved configuration file.  A configuration file may be modified
+manually to specify one or more config[=\fIFILE\fR] to indirectly load
+the specified FILE, but recursive config loading is not allowed.
 .TP
 \fB\-\-separator\fR[=\fISEP\fR]
 Use SEP as field separator between file name, line number, column
 number, byte offset and the matched line.  The default is a colon
-(`:'), a plus (`+') for additional matches on the same line, and a
-bar (`|') for multi\-line pattern matches.
+(`:') and a bar (`|') for multi\-line pattern matches.
 .TP
 \fB\-\-split\fR
 Split the \fB\-Q\fR query TUI screen on startup.
@@ -771,8 +776,9 @@ extensions passed to option \fB\-O\fR and filenames passed to option \fB\-g\fR.
 For capitalized file types, the search is expanded to include files
 with matching file signature magic bytes, as if passed to option
 \fB\-M\fR.  When a type is preceded by a `!' or a `^', excludes files of
-the specified type.  This option may be repeated.  The possible
-file types can be (where \fB\-t\fRlist displays a detailed list):
+the specified type.  Specifying the initial part of a type name
+suffices when the choice is unambiguous.  This option may be
+repeated.  The possible file types can be (\fB\-t\fRlist displays a list):
 `actionscript', `ada', `asm', `asp', `aspx', `autoconf', `automake',
 `awk', `Awk', `basic', `batch', `bison', `c', `c++',
 `clojure', `cpp', `csharp', `css', `csv', `dart', `Dart',
@@ -787,7 +793,7 @@ file types can be (where \fB\-t\fRlist displays a detailed list):
 `scala', `scheme', `shell', `Shell', `smalltalk', `sql', `svg',
 `swift', `tcl', `tex', `text', `tiff', `Tiff', `tt',
 `typescript', `verilog', `vhdl', `vim', `xml', `Xml', `yacc',
-`yaml'.
+`yaml', `zig'.
 .TP
 \fB\-\-tabs\fR[=\fINUM\fR]
 Set the tab size to NUM to expand tabs for option \fB\-k\fR.  The value of
@@ -810,8 +816,7 @@ represented by the UTF\-8 sequence C2 A3.  See also option \fB\-\-dotall\fR.
 .TP
 \fB\-u\fR, \fB\-\-ungroup\fR
 Do not group multiple pattern matches on the same matched line.
-Output the matched line again for each additional pattern match,
-using `+' as a separator.
+Output the matched line again for each additional pattern match.
 .TP
 \fB\-V\fR, \fB\-\-version\fR
 Display version with linked libraries and exit.
@@ -870,7 +875,7 @@ not only lines containing the character `x'.
 Any line is output (passthru).  Non\-matching lines are output as
 context with a `\-' separator.  See also options \fB\-A\fR, \fB\-B\fR and \fB\-C\fR.
 .TP
-\fB\-Z\fR[best][+\-~][\fIMAX\fR], \fB\-\-fuzzy\fR=[best][+\-~][\fIMAX\fR]
+\fB\-Z\fR[best][+\-~][\fIMAX\fR], \fB\-\-fuzzy\fR[=[best][+\-~][\fIMAX\fR]]
 Fuzzy mode: report approximate pattern matches within MAX errors.
 The default is \fB\-Z\fR1: one deletion, insertion or substitution is
 allowed.  If `+`, `\-' and/or `~' is specified, then `+' allows
@@ -887,30 +892,31 @@ match the first character, replace it with a `.' or `.?'.  Option
 text.  No whitespace may be given between \fB\-Z\fR and its argument.
 .TP
 \fB\-z\fR, \fB\-\-decompress\fR
-Decompress files to search, when compressed.  Archives (.cpio,
-\&.pax, .tar) and compressed archives (e.g. .zip, .taz, .tgz, .tpz,
-\&.tbz, .tbz2, .tb2, .tz2, .tlz, .txz, .tzst) are searched and
-matching pathnames of files in archives are output in braces.  When
-used with option \fB\-\-zmax\fR=\fINUM\fR, searches the contents of compressed
-files and archives stored within archives up to NUM levels.  If \fB\-g\fR,
-\fB\-O\fR, \fB\-M\fR, or \fB\-t\fR is specified, searches files stored in archives whose
+Search compressed files and archives.  Archives (.cpio, .pax, .tar)
+and compressed archives (e.g. .zip, .7z, .taz, .tgz, .tpz, .tbz,
+\&.tbz2, .tb2, .tz2, .tlz, .txz, .tzst) are searched and matching
+pathnames of files in archives are output in braces.  When used
+with option \fB\-\-zmax\fR=\fINUM\fR, searches the contents of compressed files
+and archives stored within archives up to NUM levels.  If \fB\-g\fR, \fB\-O\fR,
+\fB\-M\fR, or \fB\-t\fR is specified, searches files stored in archives whose
 filenames match globs, match filename extensions, match file
 signature magic bytes, or match file types, respectively.
-Supported compression formats: gzip (.gz), compress (.Z), zip,
+Supported compression formats: gzip (.gz), compress (.Z), zip, 7z,
 bzip2 (requires suffix .bz, .bz2, .bzip2, .tbz, .tbz2, .tb2, .tz2),
 lzma and xz (requires suffix .lzma, .tlz, .xz, .txz),
 lz4 (requires suffix .lz4),
-zstd (requires suffix .zst, .zstd, .tzst).
+zstd (requires suffix .zst, .zstd, .tzst),
+brotli (requires suffix .br).
 .TP
 \fB\-\-zmax\fR=\fINUM\fR
 When used with option \fB\-z\fR (\fB\-\-decompress\fR), searches the contents of
 compressed files and archives stored within archives by up to NUM
-expansion levels deep.  The default \fB\-\-zmax\fR=1 only permits searching
-uncompressed files stored in cpio, pax, tar and zip archives;
+expansion stages.  The default \fB\-\-zmax\fR=1 only permits searching
+uncompressed files stored in cpio, pax, tar, zip and 7z archives;
 compressed files and archives are detected as binary files and are
 effectively ignored.  Specify \fB\-\-zmax\fR=2 to search compressed files
-and archives stored in cpio, pax, tar and zip archives.  NUM may
-range from 1 to 99 for up to 99 decompression and de\-archiving
+and archives stored in cpio, pax, tar, zip and 7z archives.  NUM
+may range from 1 to 99 for up to 99 decompression and de\-archiving
 steps.  Increasing NUM values gradually degrades performance.
 .TP
 \fB\-0\fR, \fB\-\-null\fR
@@ -949,9 +955,10 @@ is loaded first, followed by the remaining options and arguments on the command
 line.
 .PP
 The \fB--save-config\fR option saves a `.ugrep' configuration file to the
-working directory with a subset of the current options.  The
-\fB--save-config\fR=\fIFILE\fR option saves the configuration to \fIFILE\fR.
-The configuration is written to standard output when \fIFILE\fR is a `-'.
+working directory with a subset of the options specified on the command line.
+The \fB--save-config\fR=\fIFILE\fR option saves the configuration to
+\fIFILE\fR.  The configuration is written to standard output when \fIFILE\fR is
+a `-'.
 .SH GLOBBING
 Globbing is used by options \fB-g\fR, \fB--include\fR, \fB--include-dir\fR,
 \fB--include-from\fR, \fB--exclude\fR, \fB--exclude-dir\fR,
@@ -1049,9 +1056,11 @@ supported.
 May be used to specify ANSI SGR parameters to highlight matches and other
 attributes when option \fB--color\fR is used.  Its value is a colon-separated
 list of ANSI SGR parameters that defaults to
-\fBcx=33:mt=1;31:fn=1;35:ln=1;32:cn=1;32:bn=1;32:se=36\fR.  The \fBmt=\fR,
-\fBms=\fR, and \fBmc=\fR capabilities of \fBGREP_COLORS\fR take priority over
-\fBGREP_COLOR\fR.  Option \fB--colors\fR takes priority over \fBGREP_COLORS\fR.
+\fBcx=33:mt=1;31:fn=1;35:ln=1;32:cn=1;32:bn=1;32:se=36\fR with additional
+parameters for TUI colors \fB:qp=1;32:qe=1;37;41:qm=1;32:ql=36:qb=1;35\fR.
+The \fBmt=\fR, \fBms=\fR, and \fBmc=\fR capabilities of \fBGREP_COLORS\fR take
+priority over \fBGREP_COLOR\fR.  Option \fB--colors\fR takes priority over
+\fBGREP_COLORS\fR.
 .SH GREP_COLORS
 Colors are specified as string of colon-separated ANSI SGR parameters of the
 form `what=substring', where `substring' is a semicolon-separated list of ANSI
@@ -1061,40 +1070,52 @@ SGR codes or `k' (black), `r' (red), `g' (green), `y' (yellow), `b' (blue), `m'
 combined with one or more font properties `n' (normal), `f' (faint), `h'
 (highlight), `i' (invert), `u' (underline).  Substrings may be specified for:
 .IP \fBsl=\fR
-SGR substring for selected lines.
+selected lines.
 .IP \fBcx=\fR
-SGR substring for context lines.
+context lines.
 .IP \fBrv\fR
-Swaps the \fBsl=\fR and \fBcx=\fR capabilities when \fB-v\fR is specified.
+swaps the \fBsl=\fR and \fBcx=\fR capabilities when \fB-v\fR is specified.
 .IP \fBmt=\fR
-SGR substring for matching text in any matching line.
+matching text in any matching line.
 .IP \fBms=\fR
-SGR substring for matching text in a selected line.  The substring \fBmt=\fR by
+matching text in a selected line.  The substring \fBmt=\fR by
 default.
 .IP \fBmc=\fR
-SGR substring for matching text in a context line.  The substring \fBmt=\fR by
+matching text in a context line.  The substring \fBmt=\fR by
 default.
 .IP \fBfn=\fR
-SGR substring for filenames.
+filenames.
 .IP \fBln=\fR
-SGR substring for line numbers.
+line numbers.
 .IP \fBcn=\fR
-SGR substring for column numbers.
+column numbers.
 .IP \fBbn=\fR
-SGR substring for byte offsets.
+byte offsets.
 .IP \fBse=\fR
-SGR substring for separators.
+separators.
 .IP \fBrv\fR
 a Boolean parameter, switches \fBsl=\fR and \fBcx=\fR with option \fB-v\fR.
 .IP \fBhl\fR
 a Boolean parameter, enables filename hyperlinks (\fB\\33]8;;link\fR).
 .IP \fBne\fR
 a Boolean parameter, disables ``erase in line'' \fB\\33[K\fR.
+.IP \fBqp=\fR
+TUI prompt.
+.IP \fBqe=\fR
+TUI errors.
+.IP \fBqr=\fR
+TUI regex.
+.IP \fBqm=\fR
+TUI regex meta characters.
+.IP \fBql=\fR
+TUI regex lists and literals.
+.IP \fBqb=\fR
+TUI regex braces.
 .SH FORMAT
 Option \fB--format\fR=\fIFORMAT\fR specifies an output format for file matches.
 Fields may be used in \fIFORMAT\fR, which expand into the following values:
-.IP \fB%[\fR\fIARG\fR\fB]F\fR
-if option \fB-H\fR is used: \fIARG\fR, the file pathname and separator.
+.IP \fB%[\fR\fITEXT\fR\fB]F\fR
+if option \fB-H\fR is used: \fITEXT\fR, the file pathname and separator.
 .IP \fB%f\fR
 the file pathname.
 .IP \fB%a\fR
@@ -1103,33 +1124,33 @@ the file basename without directory path.
 the directory path to the file.
 .IP \fB%z\fR
 the file pathname in a (compressed) archive.
-.IP \fB%[\fR\fIARG\fR\fB]H\fR
-if option \fB-H\fR is used: \fIARG\fR, the quoted pathname and separator, \\"
+.IP \fB%[\fR\fITEXT\fR\fB]H\fR
+if option \fB-H\fR is used: \fITEXT\fR, the quoted pathname and separator, \\"
 and \\\\ replace " and \\.
 .IP \fB%h\fR
 the quoted file pathname, \\" and \\\\ replace " and \\.
-.IP \fB%[\fR\fIARG\fR\fB]N\fR
-if option \fB-n\fR is used: \fIARG\fR, the line number and separator.
+.IP \fB%[\fR\fITEXT\fR\fB]N\fR
+if option \fB-n\fR is used: \fITEXT\fR, the line number and separator.
 .IP \fB%n\fR
 the line number of the match.
-.IP \fB%[\fR\fIARG\fR\fB]K\fR
-if option \fB-k\fR is used: \fIARG\fR, the column number and separator.
+.IP \fB%[\fR\fITEXT\fR\fB]K\fR
+if option \fB-k\fR is used: \fITEXT\fR, the column number and separator.
 .IP \fB%k\fR
 the column number of the match.
-.IP \fB%[\fR\fIARG\fR\fB]B\fR
-if option \fB-b\fR is used: \fIARG\fR, the byte offset and separator.
+.IP \fB%[\fR\fITEXT\fR\fB]B\fR
+if option \fB-b\fR is used: \fITEXT\fR, the byte offset and separator.
 .IP \fB%b\fR
 the byte offset of the match.
-.IP \fB%[\fR\fIARG\fR\fB]T\fR
-if option \fB-T\fR is used: \fIARG\fR and a tab character.
+.IP \fB%[\fR\fITEXT\fR\fB]T\fR
+if option \fB-T\fR is used: \fITEXT\fR and a tab character.
 .IP \fB%t\fR
 a tab character.
 .IP \fB%[\fR\fISEP\fR\fB]$\fR
 set field separator to \fISEP\fR for the rest of the format fields.
-.IP \fB%[\fR\fIARG\fR\fB]<\fR
-if the first match: \fIARG\fR.
-.IP \fB%[\fR\fIARG\fR\fB]>\fR
-if not the first match: \fIARG\fR.
+.IP \fB%[\fR\fITEXT\fR\fB]<\fR
+if the first match: \fITEXT\fR.
+.IP \fB%[\fR\fITEXT\fR\fB]>\fR
+if not the first match: \fITEXT\fR.
 .IP \fB%,\fR
 if not the first match: a comma, same as \fB%[,]>\fR.
 .IP \fB%:\fR
@@ -1138,10 +1159,10 @@ if not the first match: a colon, same as \fB%[:]>\fR.
 if not the first match: a semicolon, same as \fB%[;]>\fR.
 .IP \fB%|\fR
 if not the first match: a vertical bar, same as \fB%[|]>\fR.
-.IP \fB%[\fR\fIARG\fR\fB]S\fR
-if not the first match: \fIARG\fR and separator, see also \fB%[\fR\fISEP\fR\fB]$.
+.IP \fB%[\fR\fITEXT\fR\fB]S\fR
+if not the first match: \fITEXT\fR and separator, see also \fB%[\fR\fISEP\fR\fB]$.
 .IP \fB%s\fR
-the separator, see also \fB%[\fR\fIARG\fR\fB]S\fR and \fB%[\fR\fISEP\fR\fB]$.
+the separator, see also \fB%[\fR\fITEXT\fR\fB]S\fR and \fB%[\fR\fISEP\fR\fB]$.
 .IP \fB%~\fR
 a newline character.
 .IP \fB%M\fR
@@ -1224,7 +1245,7 @@ the percentage sign.
 Formatted output is written without a terminating newline, unless \fB%~\fR or
 `\\n' is explicitly specified in the format string.
 .PP
-The \fB[\fR\fIARG\fR\fB]\fR part of a field is optional and may be omitted.
+The \fB[\fR\fITEXT\fR\fB]\fR part of a field is optional and may be omitted.
 When present, the argument must be placed in \fB[]\fR brackets, for example
 \fB%[,]F\fR to output a comma, the pathname, and a separator.
 .PP
@@ -1280,7 +1301,7 @@ $ ugrep -cowi patricia myfile.txt
 .PP
 List lines with `amount' and a decimal, ignoring case (space is AND):
 .IP
-$ ugrep -i --bool 'amount \d+(\.\d+)?' myfile.txt
+$ ugrep -i -% 'amount \d+(\.\d+)?' myfile.txt
 .PP
 Alternative query:
 .IP
@@ -1340,7 +1361,7 @@ $ ugrep -n -e FIXME --and urgent myfile.cpp
 .PP
 The same, but with a Boolean query pattern (a space is AND):
 .IP
-$ ugrep -n --bool 'FIXME urgent' myfile.cpp
+$ ugrep -n -% 'FIXME urgent' myfile.cpp
 .PP
 Find lines with `FIXME' that do not also contain `later':
 .IP
@@ -1348,7 +1369,7 @@ $ ugrep -n -e FIXME --andnot later myfile.cpp
 .PP
 The same, but with a Boolean query pattern (a space is AND, - is NOT):
 .IP
-$ ugrep -n --bool 'FIXME -later' myfile.cpp
+$ ugrep -n -% 'FIXME -later' myfile.cpp
 .PP
 Output a list of line numbers of lines with `FIXME' but not `later':
 .IP
@@ -1357,7 +1378,7 @@ $ ugrep -e FIXME --andnot later --format='%,%n' myfile.cpp
 Recursively list all files with both `FIXME' and `LICENSE' anywhere in the
 file, not necessarily on the same line:
 .IP
-$ ugrep -l --files --bool 'FIXME LICENSE'
+$ ugrep -l -%% 'FIXME LICENSE'
 .PP
 Find lines with `FIXME' in the C/C++ files stored in a tarball:
 .IP
@@ -1368,8 +1389,8 @@ and `old' directories:
 .IP
 $ ugrep -n FIXME -tc++ -g^bak/,^old/
 .PP
-Recursively search for the word `copyright' in cpio/jar/pax/tar/zip archives,
-compressed and regular files, and in PDFs using a PDF filter:
+Recursively search for the word `copyright' in cpio, jar, pax, tar, zip, 7z
+archives, compressed and regular files, and in PDFs using a PDF filter:
 .IP
 $ ugrep -z -w --filter='pdf:pdftotext % -' copyright
 .PP
@@ -1400,7 +1421,7 @@ $ tail -f /var/log/system.log | ugrep -u -i -w bug
 .PP
 Interactive fuzzy search with Boolean search queries:
 .IP
-$ ugrep -Q -l --bool -Z3 --sort=best
+$ ugrep -Q -l -% -Z3 --sort=best
 .PP
 Display all words in a MacRoman-encoded file that has CR newlines:
 .IP

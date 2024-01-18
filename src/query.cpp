@@ -100,10 +100,8 @@ inline void set_blocking(int fd0)
 
 #endif
 
-static const char *PROMPT = "\033[32;1m";    // bright green
-static const char *CERROR = "\033[37;41;1m"; // bright white on red
-static const char *LARROW = "«";             // left arrow
-static const char *RARROW = "»";             // right arrow
+static const char *LARROW = "«"; // left arrow
+static const char *RARROW = "»"; // right arrow
 
 // return pointer to character in the query search line at screen col, taking UTF-8 double width characters into account
 char *Query::line_ptr(int col)
@@ -170,55 +168,221 @@ int Query::line_wsize()
 // draw a textual part of the query search line, this function is called by draw()
 void Query::display(int col, int len)
 {
-  char *ptr = line_ptr(col);
-  char *end = line_ptr(col + len);
-  char *err = error_ >= 0 && !Screen::mono ? line_ + error_ : NULL;
-  char *next;
+  const char *ptr = line_ptr(col);
+  const char *end = line_ptr(col + len);
+  const char *err = error_ >= 0 && !Screen::mono ? line_ + error_ : NULL;
+  const char *next;
   bool alert = false;
+  bool list = false;
+  bool braced = false;
+  bool literal = false;
+  int prev = ' ';
+  if (!Screen::mono)
+  {
+    if (!flag_fixed_strings)
+    {
+      for (const char *look = line_; look < ptr; ++look)
+      {
+        if (!braced && !literal && *look == (list ? ']' : '['))
+          list = !list, look += (*look == '[') + (look[1] == '^' || look[1] == '\\');
+        else if (!list && !literal && *look == (braced ? '}' : '{'))
+          braced = !braced;
+        else if (!list && !braced && *look == '"' && flag_bool)
+          literal = !literal;
+        else if (*look == '\\' && look[1] == (literal ? 'E' : 'Q'))
+          literal = !literal;
+        else if (*look == '\\')
+          ++look;
+      }
+    }
+    if (literal || list)
+      Screen::put(color_ql);
+    else if (braced)
+      Screen::put(color_qb);
+    else
+      Screen::put(color_qr);
+  }
   for (next = ptr; next < end; ++next)
   {
     if (next == err)
     {
       Screen::put(ptr, next - ptr);
-      Screen::put(CERROR);
+      Screen::normal();
+      if (!Screen::mono)
+        Screen::put(color_qe);
       ptr = next;
       alert = true;
     }
-    int ch = static_cast<unsigned char>(*next);
-    if (ch < ' ' || ch == 0x7f)
+    else
     {
-      Screen::put(ptr, next - ptr);
-      if (err != NULL && alert && next > err)
+      int ch = static_cast<unsigned char>(*next);
+      if (err != NULL && alert && next > err && (ch & 0xc0) != 0x80)
       {
+        Screen::put(ptr, next - ptr);
         Screen::normal();
+        if (list)
+          Screen::put(color_ql);
+        else if (braced)
+          Screen::put(color_qb);
+        else
+          Screen::put(color_qr);
+        ptr = next;
         alert = false;
       }
-      if (!alert)
-        Screen::invert();
-      if (ch == 0x7f)
+      if (ch <= 0x1f || ch == 0x7f)
       {
-        Screen::put("^?");
+        Screen::put(ptr, next - ptr);
+        if (err != NULL && alert && next > err)
+        {
+          Screen::normal();
+          if (!Screen::mono)
+            Screen::put(color_qr);
+          alert = false;
+        }
+        if (!alert)
+          Screen::invert();
+        if (ch == 0x7f)
+        {
+          Screen::put("^?");
+        }
+        else
+        {
+          char buf[2] = { '^', static_cast<char>('@' + ch) };
+          Screen::put(buf, 2);
+        }
+        Screen::normal();
+        ptr = next + 1;
+        alert = false;
       }
-      else
+      else if (!Screen::mono)
       {
-        char buf[2] = { '^', static_cast<char>('@' + ch) };
-        Screen::put(buf, 2);
+        if (!flag_fixed_strings)
+        {
+          if (ch == '[' && !list && !literal && !braced)
+          {
+            list = true;
+            Screen::put(ptr, next - ptr);
+            Screen::normal();
+            Screen::put(color_qm);
+            Screen::put(ch);
+            Screen::normal();
+            Screen::put(color_ql);
+            ptr = ++next;
+            next += (*next == '^');
+            next += (*next == '\\');
+          }
+          else if (ch == ']' && list && !literal && !braced)
+          {
+            list = false;
+            Screen::put(ptr, next - ptr);
+            Screen::normal();
+            Screen::put(color_qm);
+            Screen::put(ch);
+            Screen::normal();
+            Screen::put(color_qr);
+            ptr = next + 1;
+          }
+          else if (ch == '{' && !list && !literal && !braced)
+          {
+            braced = true;
+            Screen::put(ptr, next - ptr);
+            Screen::normal();
+            Screen::put(color_qb);
+            ptr = next;
+          }
+          else if (ch == '}' && !list && !literal && braced)
+          {
+            braced = false;
+            Screen::put(ptr, next - ptr + 1);
+            Screen::normal();
+            Screen::put(color_qr);
+            ptr = next + 1;
+          }
+          else if (ch == '\\' && next + 1 != err && next[1] >= ' ' && next[1] <= '~')
+          {
+            if (next[1] == 'E' && !list)
+              literal = false;
+            if (!literal)
+            {
+              if (next[1] == 'Q' && !list)
+                literal = true;
+              Screen::put(ptr, next - ptr);
+              Screen::normal();
+              Screen::put(color_qm);
+              Screen::put(ch);
+              if (next + 1 < end)
+                Screen::put(next[1]);
+              Screen::normal();
+              if (literal || list)
+                Screen::put(color_ql);
+              else if (braced)
+                Screen::put(color_qb);
+              else
+                Screen::put(color_qr);
+              ptr = ++next + 1;
+            }
+          }
+          else if (strchr("$()*+.?^|", ch) != NULL && !list && !literal && !braced)
+          {
+            if (!flag_basic_regexp || strchr("()+?|", ch) == NULL)
+            {
+              Screen::put(ptr, next - ptr);
+              Screen::normal();
+              Screen::put(color_qm);
+              Screen::put(ch);
+              Screen::normal();
+              Screen::put(color_qr);
+              ptr = next + 1;
+            }
+          }
+        }
+        if (flag_bool && !list && !braced)
+        {
+          if (ch == '"')
+          {
+            literal = !literal;
+            Screen::put(ptr, next - ptr);
+            Screen::normal();
+            Screen::put(color_ql);
+            Screen::put(ch);
+            Screen::normal();
+            if (literal)
+              Screen::put(color_ql);
+            else
+              Screen::put(color_qr);
+            ptr = next + 1;
+          }
+          else if (!literal && prev == ' ')
+          {
+            if (ch == '-' ||
+                strncmp(next, "AND ", 4) == 0 ||
+                strncmp(next, "OR ", 3) == 0 ||
+                strncmp(next, "NOT ", 4) == 0)
+            {
+              Screen::put(ptr, next - ptr);
+              Screen::normal();
+              Screen::put(color_qm);
+              ptr = next;
+              if (ch != '-')
+                next += 2 + (next[2] != ' ');
+              ch = ' ';
+            }
+            else
+            {
+              Screen::put(ptr, next - ptr);
+              Screen::normal();
+              ptr = next;
+            }
+          }
+        }
       }
-      Screen::normal();
-      ptr = next + 1;
-      alert = false;
-    }
-    else if (err != NULL && alert && next > err && (ch & 0xc0) != 0x80)
-    {
-      Screen::put(ptr, next - ptr);
-      Screen::normal();
-      ptr = next;
-      alert = false;
+      prev = ch;
     }
   }
-  Screen::put(ptr, next - ptr);
-  if (next == err)
-    Screen::put(CERROR);
+  if (ptr < end)
+    Screen::put(ptr, end - ptr);
+  if (next == err && !Screen::mono)
+    Screen::put(color_qe);
 }
 
 // draw the query search line
@@ -266,14 +430,10 @@ void Query::draw()
       if (!Screen::mono)
       {
         Screen::normal();
-        if (error_ == -1)
-          Screen::put(PROMPT);
-        else
-          Screen::put(CERROR);
+        Screen::put(error_ == -1 ? color_qp : color_qe);
       }
 
       Screen::put(prompt_.c_str());
-
       Screen::normal();
 
       start_ += static_cast<int>(prompt_.size());
@@ -289,12 +449,7 @@ void Query::draw()
       if (offset_ > 0)
       {
         if (!Screen::mono)
-        {
-          if (error_ == -1)
-            Screen::put(PROMPT);
-          else
-            Screen::put(CERROR);
-        }
+          Screen::put(error_ == -1 ? color_qp : color_qe);
 
         Screen::put(LARROW);
         Screen::normal();
@@ -311,12 +466,7 @@ void Query::draw()
           display(offset_ + adj, Screen::cols - start_ - adj - 1);
           Screen::erase();
           if (!Screen::mono)
-          {
-            if (error_ == -1)
-              Screen::put(PROMPT);
-            else
-              Screen::put(CERROR);
-          }
+            Screen::put(error_ == -1 ? color_qp : color_qe);
           Screen::put(RARROW);
         }
         else
@@ -332,12 +482,7 @@ void Query::draw()
           display(0, Screen::cols - start_ - 1);
           Screen::erase();
           if (!Screen::mono)
-          {
-            if (error_ == -1)
-              Screen::put(PROMPT);
-            else
-              Screen::put(CERROR);
-          }
+            Screen::put(error_ == -1 ? color_qp : color_qe);
           Screen::put(RARROW);
         }
         else
@@ -608,6 +753,9 @@ void Query::erase(int num)
 // called by the main program
 void Query::query()
 {
+  // do not exit on usage warnings
+  flag_usage_warnings = true;
+
   get_stdin();
 
   if (!VKey::setup(VKey::TTYRAW))
@@ -699,25 +847,25 @@ void Query::query()
 // run the query UI
 void Query::query_ui()
 {
-  mode_       = Mode::QUERY;
-  updated_    = false;
-  message_    = false;
-  *line_      = '\0';
-  col_        = 0;
-  len_        = 0;
-  offset_     = 0;
-  shift_      = 8;
-  error_      = -1;
-  tick_       = 4;
-  row_        = 0;
-  rows_       = 0;
-  maxrows_    = Screen::rows;
-  skip_       = 0;
-  select_     = -1;
+  mode_ = Mode::QUERY;
+  updated_ = false;
+  message_ = false;
+  *line_ = '\0';
+  col_ = 0;
+  len_ = 0;
+  offset_ = 0;
+  shift_ = 8;
+  error_ = -1;
+  tick_ = 4;
+  row_ = 0;
+  rows_ = 0;
+  maxrows_ = Screen::rows;
+  skip_ = 0;
+  select_ = -1;
   select_all_ = false;
-  globbing_   = false;
-  eof_        = true;
-  buflen_     = 0;
+  globbing_ = false;
+  eof_ = true;
+  buflen_ = 0;
 
   Screen::clear();
 
@@ -760,14 +908,11 @@ void Query::query_ui()
   }
 
   set_prompt();
-
-  redraw();
-
   search();
+  redraw();
 
   bool ctrl_o = false;
   bool ctrl_v = false;
-
   bool err = false;
 
   while (true)
@@ -1257,7 +1402,7 @@ void Query::query_ui()
             else
             {
 #ifdef __APPLE__
-              Screen::put(CERROR);
+              Screen::put(color_qe);
               Screen::put(0, 0, "MacOS Terminal Preferences/Profiles/Keyboard: enable \"Use Option as Meta key\"");
 #endif
               Screen::alert();
@@ -1340,6 +1485,9 @@ void Query::search()
   found_ = 0;
   error_ = -1;
 
+  // reset ugrep stats
+  Stats::reset();
+
   Static::arg_pattern = globbing_ ? temp_ : line_;
 
   if (*Static::arg_pattern == '\0' && !flag_file.empty())
@@ -1347,12 +1495,13 @@ void Query::search()
 
   if (deselect_file_)
   {
+    // S-Tab back out of a selected file
     selected_file_.clear();
-    Static::arg_files.clear();
     deselect_file_ = false;
   }
   else if (!selected_file_.empty() && Static::arg_files.empty())
   {
+    // Tab into the selected file to search
     Static::arg_files.emplace_back(selected_file_.c_str());
   }
 
@@ -1376,11 +1525,10 @@ void Query::search()
 
   select_ = -1;
   select_all_ = false;
+  updated_ = false;
+  tick_ = 4;
 
   draw();
-  status(true);
-
-  updated_ = false;
 }
 
 // display the status line
@@ -1400,6 +1548,8 @@ void Query::status(bool show)
   {
     if (tick_ < 8)
     {
+      Screen::normal();
+
       if (ff == 0)
         Screen::put(1, 0, "[no matches found]");
 
@@ -1408,7 +1558,6 @@ void Query::status(bool show)
       const char *pager = flag_view ? flag_view : "-";
 
       snprintf(banner, banlen, "%zu/%zu files | %zu dirs | %zu warnings | ^Q quit  ^T split  ^Y %s  ^Z help  %s%*s", ff, sf, sd, ws, pager, bookmark, banlen - 100, "");
-      Screen::normal();
       Screen::invert();
       Screen::put(maxrows_ - 1, 0, banner);
       Screen::normal();
@@ -1432,11 +1581,12 @@ void Query::status(bool show)
 
     if (tick_ == 4)
     {
+      Screen::normal();
+
       int spinner = "-\\|/"[spin_];
       const char *pager = flag_view ? flag_view : "-";
 
       snprintf(banner, banlen, "[%c] %zu/%zu files queued | ^Q quit  ^T split  ^Y %s  ^Z help  %s%*s", spinner, ff, sf, pager, bookmark, banlen - 100, "");
-      Screen::normal();
       Screen::invert();
       Screen::put(maxrows_ - 1, 0, banner);
       Screen::normal();
@@ -1490,6 +1640,7 @@ bool Query::update()
       Screen::setpos(row, 0);
       if (tick_ < 4)
       {
+        Screen::normal();
         if (tick_ == 0)
           Screen::erase();
         else
@@ -1521,6 +1672,7 @@ bool Query::update()
         else
         {
           // clear all below last row
+          Screen::normal();
           Screen::end();
         }
       }
@@ -1538,7 +1690,7 @@ bool Query::update()
     if (!Screen::mono)
     {
       Screen::setpos(2, 0);
-      Screen::put(CERROR);
+      Screen::put(color_qe);
       Screen::erase();
     }
 
@@ -2179,19 +2331,21 @@ void Query::view()
       !flag_count &&
       !flag_hex &&
       !flag_with_hex &&
-      (command == "less"  ||
-       command == "moar"  ||
-       command == "more"  ||
-       command == "most"  ||
-       command == "w3m"   ||
-       command == "emacs" ||
-       command == "joe"   ||
-       command == "vi"    ||
-       command == "vim"   ||
-       command == "vis"   ||
-       command == "nano"  ||
-       command == "pico"  ||
-       command == "vile"  ||
+      (command == "less"       ||
+       command == "moar-pager" ||
+       command == "moar"       ||
+       command == "more"       ||
+       command == "most"       ||
+       command == "w3m"        ||
+       command == "emacs"      ||
+       command == "joe"        ||
+       command == "vi"         ||
+       command == "vim"        ||
+       command == "vis"        ||
+       command == "kak"        ||
+       command == "nano"       ||
+       command == "pico"       ||
+       command == "vile"       ||
        command == "zile"))
   {
     line_number = get_line_number();
@@ -2225,39 +2379,50 @@ void Query::view()
     if (filename.empty())
       found = false;
 
-    if (!found && Static::arg_files.size() == 1)
+    if (!found)
     {
-      // if not found an only one FILE argument was provided then view FILE
-      filename = Static::arg_files.front();
-      found = true;
+      if (Static::arg_files.size() == 1)
+      {
+        // if not found and only one FILE argument was provided then view FILE
+        filename = Static::arg_files.front();
+        if (filename == "-")
+          filename = flag_label;
+        found = true;
+      }
+      else if (flag_stdin && Static::arg_files.empty())
+      {
+        // view standard input
+        filename = flag_label;
+        found = true;
+      }
     }
-    else if (!partname.empty())
-    {
-      // cannot view an archive part
-      found = false;
-    }
-
-    // cannot view standard input
-    if (found && flag_stdin && filename.compare(flag_label) == 0)
-      found = false;
   }
 
   if (found)
   {
 #ifdef OS_WIN
     _WIN32_FILE_ATTRIBUTE_DATA attr_before;
-    found = GetFileAttributesExW(utf8_decode(filename).c_str(), GetFileExInfoStandard, &attr_before);
 #else
     struct stat buf;
-    found = stat(filename.c_str(), &buf) == 0 && S_ISREG(buf.st_mode);
-#if defined(HAVE_STAT_ST_ATIM) && defined(HAVE_STAT_ST_MTIM) && defined(HAVE_STAT_ST_CTIM)
-    uint64_t mtime = static_cast<uint64_t>(buf.st_mtim.tv_sec) * 1000000 + buf.st_mtim.tv_nsec / 1000;
-#elif defined(HAVE_STAT_ST_ATIMESPEC) && defined(HAVE_STAT_ST_MTIMESPEC) && defined(HAVE_STAT_ST_CTIMESPEC)
-    uint64_t mtime = static_cast<uint64_t>(buf.st_mtimespec.tv_sec) * 1000000 + buf.st_mtimespec.tv_nsec / 1000;
+    uint64_t mtime = 0;
+#endif
+
+    if (!flag_stdin || filename != flag_label)
+    {
+      // check if the file exists and is a regular file, also get the file's last modification time
+#ifdef OS_WIN
+      found = GetFileAttributesExW(utf8_decode(filename).c_str(), GetFileExInfoStandard, &attr_before);
 #else
-    uint64_t mtime = static_cast<uint64_t>(buf.st_mtime);
+      found = stat(filename.c_str(), &buf) == 0 && S_ISREG(buf.st_mode);
+#if defined(HAVE_STAT_ST_ATIM) && defined(HAVE_STAT_ST_MTIM) && defined(HAVE_STAT_ST_CTIM)
+      mtime = static_cast<uint64_t>(buf.st_mtim.tv_sec) * 1000000 + buf.st_mtim.tv_nsec / 1000;
+#elif defined(HAVE_STAT_ST_ATIMESPEC) && defined(HAVE_STAT_ST_MTIMESPEC) && defined(HAVE_STAT_ST_CTIMESPEC)
+      mtime = static_cast<uint64_t>(buf.st_mtimespec.tv_sec) * 1000000 + buf.st_mtimespec.tv_nsec / 1000;
+#else
+      mtime = static_cast<uint64_t>(buf.st_mtime);
 #endif
 #endif
+    }
 
     if (found)
     {
@@ -2265,11 +2430,50 @@ void Query::view()
       if (line_number > 0)
         command.append(" +").append(std::to_string(line_number));
 
-      command.append(" \"").append(filename).append("\"");
-
       Screen::clear();
 
-      if (system(command.c_str()) == 0)
+      FILE *pager = NULL;
+
+      if (flag_stdin && filename == flag_label)
+      {
+        // standard input is viewed via a pipe to the pager
+#ifdef OS_WIN
+        pager = popen(command.c_str(), "wb");
+#else
+        pager = popen(command.c_str(), "w");
+#endif
+        if (pager != NULL)
+          fwrite(stdin_buffer_.c_str(), 1, stdin_buffer_.size(), pager);
+      }
+      else if (!partname.empty())
+      {
+        // archive part is viewed via a pipe to the pager
+#ifdef OS_WIN
+        pager = popen(command.c_str(), "wb");
+#else
+        pager = popen(command.c_str(), "w");
+#endif
+        if (pager != NULL)
+        {
+          try
+          {
+            ugrep_extract(filename.c_str(), partname.c_str(), pager);
+          }
+
+          catch (...)
+          {
+            // this should never happen, but just in case we ignore errors
+          }
+        }
+      }
+      else
+      {
+        // view file in the pager
+        command.append(" \"").append(filename).append("\"");
+      }
+
+      // pipe to pager was OK or execute the command
+      if ((flag_stdin && filename == flag_label) || !partname.empty() ? pager != NULL : system(command.c_str()) == 0)
       {
 #ifdef OS_WIN
         if (strcmp(flag_view, "more") == 0)
@@ -2282,25 +2486,33 @@ void Query::view()
         }
 #endif
 
-        Screen::clear();
+        bool changed = false;
 
-        bool changed;
-
+        if (pager == NULL)
+        {
+          // check if file was changed by the pager (when it is an editor)
 #ifdef OS_WIN
-        _WIN32_FILE_ATTRIBUTE_DATA attr_after;
-        changed = GetFileAttributesExW(utf8_decode(filename).c_str(), GetFileExInfoStandard, &attr_after) == 0 ||
-          attr_before.ftLastWriteTime.dwLowDateTime != attr_after.ftLastWriteTime.dwLowDateTime ||
-          attr_before.ftLastWriteTime.dwHighDateTime != attr_after.ftLastWriteTime.dwHighDateTime;
+          _WIN32_FILE_ATTRIBUTE_DATA attr_after;
+          changed = GetFileAttributesExW(utf8_decode(filename).c_str(), GetFileExInfoStandard, &attr_after) == 0 ||
+            attr_before.ftLastWriteTime.dwLowDateTime != attr_after.ftLastWriteTime.dwLowDateTime ||
+            attr_before.ftLastWriteTime.dwHighDateTime != attr_after.ftLastWriteTime.dwHighDateTime;
 #else
-        stat(filename.c_str(), &buf);
+          stat(filename.c_str(), &buf);
 #if defined(HAVE_STAT_ST_ATIM) && defined(HAVE_STAT_ST_MTIM) && defined(HAVE_STAT_ST_CTIM)
-        changed = (mtime != static_cast<uint64_t>(buf.st_mtim.tv_sec) * 1000000 + buf.st_mtim.tv_nsec / 1000);
+          changed = (mtime != static_cast<uint64_t>(buf.st_mtim.tv_sec) * 1000000 + buf.st_mtim.tv_nsec / 1000);
 #elif defined(HAVE_STAT_ST_ATIMESPEC) && defined(HAVE_STAT_ST_MTIMESPEC) && defined(HAVE_STAT_ST_CTIMESPEC)
-        changed = (mtime != static_cast<uint64_t>(buf.st_mtimespec.tv_sec) * 1000000 + buf.st_mtimespec.tv_nsec / 1000);
+          changed = (mtime != static_cast<uint64_t>(buf.st_mtimespec.tv_sec) * 1000000 + buf.st_mtimespec.tv_nsec / 1000);
 #else
-        changed = (mtime != static_cast<uint64_t>(buf.st_mtime));
+          changed = (mtime != static_cast<uint64_t>(buf.st_mtime));
 #endif
 #endif
+        }
+        else
+        {
+          // close the pipe to the pager
+          pclose(pager);
+          pager = NULL;
+        }
 
         if (changed)
         {
@@ -2322,14 +2534,13 @@ void Query::view()
     }
   }
 
-  if (!found)
+  if (!found && (!filename.empty() || !partname.empty()))
   {
     std::string problem("cannot view or edit ");
     if (partname.empty())
       problem.append(filename);
     else
-     problem.append(partname).append(" in ").append(filename);
-    problem.append(" (coming in a release update)");
+      problem.append(partname).append(" in ").append(filename);
     message(problem);
   }
 }
@@ -2457,40 +2668,46 @@ void Query::preview()
 // chdir one level down into the directory of the file located under the cursor or just above the screen
 void Query::select()
 {
-  if (flag_stdin)
+  if (!selected_file_.empty())
   {
-    message("cannot chdir: standard input is searched");
+    Screen::alert();
     return;
   }
 
-  if (!Static::arg_files.empty())
-  {
-    message("cannot chdir: file or directory arguments are present");
-    return;
-  }
-
-  int row = select_ >= 0 ? select_ : row_;
+  int ref = select_ >= 0 ? select_ : row_;
 
   // --tree: move down over non-filename lines to reach a filename
   if (flag_tree && (flag_files_with_matches || flag_count))
   {
-    while (row + 1 < rows_ && (view_[row].empty() || view_[row].front() != '\0'))
-      ++row;
+    while (ref + 1 < rows_ && (view_[ref].empty() || view_[ref].front() != '\0'))
+      ++ref;
   }
-  else if (row + 1 < rows_ && (view_[row].empty() || view_[row].front() != '\0'))
+  else
   {
-    ++row; // skip a non-filename line to get to a potential filename just below this line
+    // move down to skip empty lines
+    while (ref + 1 < rows_ && view_[ref].empty())
+      ++ref;
   }
 
   std::string pathname;
   bool found = false;
 
   // move up until a filename header is found
-  while (row >= 0 && !(found = find_filename(row, pathname, false, true)))
-    --row;
+  while (ref >= 0 && !(found = find_filename(ref, pathname, false, true)))
+    --ref;
+
+  if (pathname.empty())
+    found = false;
 
   if (found)
   {
+    // cannot view standard input
+    if (flag_stdin && pathname == flag_label)
+    {
+      message("cannot chdir to standard input");
+      return;
+    }
+
     if (globbing_)
     {
       globbing_ = false;
@@ -2502,27 +2719,39 @@ void Query::select()
       set_prompt();
     }
 
+    if (history_.empty())
+      files_.swap(Static::arg_files);
+
     history_.emplace();
     history_.top().save(line_, col_, row_, flags_, mark_);
 
     mark_.reset();
 
-    size_t n = pathname.find(PATHSEPCHR);
+    size_t n = pathname.find(PATHSEPCHR, 1); // ignore PATHSEPCHR at front when present
     size_t b = pathname.find('{'); // do not cd into archives
     if (n != std::string::npos && (b == std::string::npos || n < b))
     {
-      pathname.resize(n);
+      std::string dir(pathname.substr(0, n + 1));
 
-      if (chdir(pathname.c_str()) < 0)
+      if (chdir(dir.c_str()) < 0)
       {
         message("cannot chdir: operation denied");
+        history_.pop();
+        if (history_.empty())
+          files_.swap(Static::arg_files);
         return;
       }
 
+      // absolute dir or relative dir
+      if (dir.front() == PATHSEPCHR)
+        dirs_.assign(dir);
+      else
+        dirs_.append(dir);
+
+      pathname.erase(0, n + 1);
+
       // a directory change affects --hyperlink
       set_terminal_hyperlink();
-
-      dirs_.append(pathname).append(PATHSEPSTR);
 
       search();
     }
@@ -2551,13 +2780,13 @@ void Query::deselect()
   {
     if (flag_stdin)
     {
-      message("cannot chdir: standard input is searched");
+      message("cannot chdir .. because standard input is searched");
       return;
     }
 
-    if (!Static::arg_files.empty())
+    if (selected_file_.empty() && !Static::arg_files.empty())
     {
-      message("cannot chdir: file or directory arguments are present");
+      message("cannot chdir .. because file or directory arguments are present");
       return;
     }
 
@@ -2583,14 +2812,11 @@ void Query::deselect()
       }
     }
 
-    if (chdir("..") < 0)
-      return;
-
-    // a directory change affects --hyperlink
-    set_terminal_hyperlink();
-
     if (dirs_.empty())
     {
+      if (chdir("..") < 0)
+        return;
+
       dirs_.assign(".." PATHSEPSTR);
     }
     else
@@ -2599,22 +2825,38 @@ void Query::deselect()
 
       size_t n = dirs_.find_last_of(PATHSEPCHR);
 
-      if (n == std::string::npos)
+      if (n != std::string::npos && dirs_.front() == PATHSEPCHR)
       {
-        if (dirs_ != "..")
-          dirs_.clear();
-        else
-          dirs_.append(PATHSEPSTR ".." PATHSEPSTR);
-      }
-      else if (dirs_.compare(n + 1, std::string::npos, "..") == 0)
-      {
-        dirs_.append(PATHSEPSTR ".." PATHSEPSTR);
+        if (chdir(dirs_.substr(0, n + 1).c_str()) < 0)
+          return;
+
+        dirs_.resize(n + 1);
       }
       else
       {
-        dirs_.resize(n + 1);
+        if (chdir("..") < 0)
+          return;
+
+        if (n == std::string::npos)
+        {
+          if (dirs_ != "..")
+            dirs_.clear();
+          else
+            dirs_.append(PATHSEPSTR ".." PATHSEPSTR);
+        }
+        else if (dirs_.compare(n + 1, std::string::npos, "..") == 0)
+        {
+          dirs_.append(PATHSEPSTR ".." PATHSEPSTR);
+        }
+        else
+        {
+          dirs_.resize(n + 1);
+        }
       }
     }
+
+    // a directory change affects --hyperlink
+    set_terminal_hyperlink();
   }
   else
   {
@@ -2626,6 +2868,7 @@ void Query::deselect()
       dirs_.clear();
 
     deselect_file_ = true;
+    Static::arg_files.clear();
   }
 
   mark_.reset();
@@ -2635,6 +2878,8 @@ void Query::deselect()
     int row;
     history_.top().restore(line_, col_, row, flags_, mark_);
     history_.pop();
+    if (history_.empty())
+      files_.swap(Static::arg_files);
     globbing_ = false;
     set_prompt();
     len_ = line_len();
@@ -2703,6 +2948,7 @@ void Query::unselect()
   dirs_.clear();
   wdir_.clear();
   deselect_file_ = true;
+  Static::arg_files.clear();
 
   mark_.reset();
 
@@ -2713,6 +2959,7 @@ void Query::unselect()
     int row;
     history_.top().restore(line_, col_, row, flags_, mark_);
     history_.pop();
+    files_.swap(Static::arg_files);
     globbing_ = false;
     set_prompt();
     len_ = line_len();
@@ -2730,7 +2977,7 @@ void Query::message(const std::string& message)
 {
   Screen::normal();
   if (!Screen::mono)
-    Screen::put(PROMPT);
+    Screen::put(color_qp);
   Screen::put(0, 0, "-> ");
   Screen::normal();
   Screen::put(0, 3, message.c_str());
@@ -2768,8 +3015,8 @@ bool Query::help()
   Screen::clear();
   redraw();
 
-  bool ctrl_q  = false; // CTRL-Q is pressed
-  bool ctrl_o  = false; // CTRL-O is pressed
+  bool ctrl_q = false; // CTRL-Q is pressed
+  bool ctrl_o = false; // CTRL-O is pressed
   bool restart = false; // META key pressed, restart search when exiting the help screen
 
   while (true)
@@ -3113,6 +3360,7 @@ void Query::meta(int key)
               flags_[15].flag = false;
             }
             break;
+
           case 'R':
           case 'r':
             for (int i = 33; i <= 41; ++i)
@@ -3177,76 +3425,98 @@ void Query::meta(int key)
         msg.assign("\033[7mM- \033[m ").append(fp->text);
         msg[6] = fp->key;
 
-        if (key == '[')
+        switch (key)
         {
-          if (!flags_[26].flag || flag_hexdump == NULL)
-            if (!flags_[0].flag && !flags_[1].flag)
-              flags_[3].flag = true;
+          case '[':
+            if (!flags_[26].flag || flag_hexdump == NULL)
+              if (!flags_[0].flag && !flags_[1].flag)
+                flags_[3].flag = true;
 
-          if (flags_[16].flag)
-          {
-            if (only_context_ > 1)
-              --only_context_;
-            msg.append(" to ").append(std::to_string(only_context_));
-          }
-          else
-          {
-            if (context_ > 1)
-              --context_;
-            msg.append(" to ").append(std::to_string(context_));
-          }
-          flags_[4].flag = false;
-          flags_[14].flag = false;
-        }
-        else if (key == ']')
-        {
-          if (flags_[26].flag && flag_hexdump != NULL)
-          {
-            ++context_;
-            msg.append(" to ").append(std::to_string(context_));
-          }
-          else if (flags_[16].flag)
-          {
-            if (flags_[0].flag || flags_[1].flag || flags_[3].flag)
-              ++only_context_;
-            else if (!flags_[0].flag && !flags_[1].flag)
-              flags_[3].flag = true;
-            msg.append(" to ").append(std::to_string(only_context_));
-          }
-          else
-          {
-            if (flags_[0].flag || flags_[1].flag || flags_[3].flag)
+            if (flags_[16].flag)
+            {
+              if (only_context_ > 1)
+                --only_context_;
+              msg.append(" to ").append(std::to_string(only_context_));
+            }
+            else
+            {
+              if (context_ > 1)
+                --context_;
+              msg.append(" to ").append(std::to_string(context_));
+            }
+            flags_[4].flag = false;
+            flags_[14].flag = false;
+            break;
+
+          case ']':
+            if (flags_[26].flag && flag_hexdump != NULL)
+            {
               ++context_;
-            else if (!flags_[0].flag && !flags_[1].flag)
-              flags_[3].flag = true;
-            msg.append(" to ").append(std::to_string(context_));
-          }
-          flags_[4].flag = false;
-          flags_[14].flag = false;
-        }
-        else if (key == '{')
-        {
-          flags_[30].flag = true;
+              msg.append(" to ").append(std::to_string(context_));
+            }
+            else if (flags_[16].flag)
+            {
+              if (flags_[0].flag || flags_[1].flag || flags_[3].flag)
+                ++only_context_;
+              else if (!flags_[0].flag && !flags_[1].flag)
+                flags_[3].flag = true;
+              msg.append(" to ").append(std::to_string(only_context_));
+            }
+            else
+            {
+              if (flags_[0].flag || flags_[1].flag || flags_[3].flag)
+                ++context_;
+              else if (!flags_[0].flag && !flags_[1].flag)
+                flags_[3].flag = true;
+              msg.append(" to ").append(std::to_string(context_));
+            }
+            flags_[4].flag = false;
+            flags_[14].flag = false;
+            break;
 
-          if ((fuzzy_ & 0xff) > 1)
-            fuzzy_ = ((fuzzy_ & 0xff) - 1) | (fuzzy_ & 0xff00);
-
-          msg.append(" to ").append(std::to_string(fuzzy_ & 0xff));
-        }
-        else if (key == '}')
-        {
-          if (flags_[30].flag && (fuzzy_ & 0xff) < 0xff)
-            fuzzy_ = ((fuzzy_ & 0xff) + 1) | (fuzzy_ & 0xff00);
-          else
+          case '{':
             flags_[30].flag = true;
 
-          msg.append(" to ").append(std::to_string(fuzzy_ & 0xff));
-        }
-        else
-        {
-          fp->flag = !fp->flag;
+            if ((fuzzy_ & 0xff) > 1)
+              fuzzy_ = ((fuzzy_ & 0xff) - 1) | (fuzzy_ & 0xff00);
 
-          msg.append(fp->flag ? " \033[32;1mon\033[m" : " \033[31;1moff\033[m");
+            msg.append(" to ").append(std::to_string(fuzzy_ & 0xff));
+            break;
+
+          case '}':
+            if (flags_[30].flag && (fuzzy_ & 0xff) < 0xff)
+              fuzzy_ = ((fuzzy_ & 0xff) + 1) | (fuzzy_ & 0xff00);
+            else
+              flags_[30].flag = true;
+
+            msg.append(" to ").append(std::to_string(fuzzy_ & 0xff));
+            break;
+
+          case '%':
+            if (fp->flag)
+            {
+              if (!flag_files)
+              {
+                flag_files = true;
+                msg.append(" \033[32;1mfiles\033[m");
+              }
+              else
+              {
+                fp->flag = false;
+                flag_files = false;
+                msg.append(" \033[31;1moff\033[m");
+              }
+            }
+            else
+            {
+              fp->flag = true;
+              msg.append(" \033[32;1mlines\033[m");
+            }
+            break;
+
+          default:
+            fp->flag = !fp->flag;
+            msg.append(fp->flag ? " \033[32;1mon\033[m" : " \033[31;1moff\033[m");
         }
 
         // search when in QUERY mode, otherwise refresh HELP display
@@ -3346,7 +3616,7 @@ bool Query::print(const std::string& line)
   const char *ptr = text;
 
   // if output should not be colored or colors are turned off, then output the selected line without its CSI sequences
-  if (flag_apply_color == NULL || Screen::mono)
+  if (flag_color == NULL || Screen::mono)
   {
     while (ptr < end)
     {
@@ -3664,6 +3934,9 @@ void Query::set_prompt()
     if (!flag_file.empty())
       prompt_.append("file");
 
+    if (flags_[42].flag)
+      prompt_.append(flag_files ? "%%" : "bool");
+
     const char *mode;
 
     if (flags_[5].flag)
@@ -3690,10 +3963,7 @@ void Query::set_prompt()
       mode = "Q>";
     }
 
-    if (flags_[42].flag)
-      prompt_.append("bool").append(mode);
-    else
-      prompt_.append(mode);
+    prompt_.append(mode);
   }
 }
 
@@ -3707,7 +3977,7 @@ void Query::get_stdin()
     while (true)
     {
       size_t len = input.get(buffer_, QUERY_BUFFER_SIZE);
-      if (len <= 0)
+      if (len == 0)
         break;
       stdin_buffer_.append(buffer_, len);
     }
@@ -3990,6 +4260,7 @@ size_t                     Query::prevnum_;
 bool                       Query::deselect_file_;
 std::string                Query::selected_file_;
 std::stack<Query::History> Query::history_;
+std::vector<const char*>   Query::files_;
 int                        Query::skip_                = 0;
 std::vector<std::string>   Query::view_;
 std::vector<bool>          Query::selected_;

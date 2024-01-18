@@ -71,7 +71,7 @@ void Stats::report(FILE *output)
 
   if (flag_index && indexed)
   {
-    fprintf(stderr, "Skipped %zu of %zu files with indexes not matching any search patterns\n", skipped, indexed);
+    fprintf(stderr, "Skipped %zu of %zu indexed files with indexes not matching any search patterns\n", skipped, indexed);
     if (changed > 0 || added > 0)
     {
       fprintf(output, "Detected outdated or missing index files, run ugrep-indexer to re-index:\n");
@@ -91,7 +91,23 @@ void Stats::report(FILE *output)
 
   fprintf(output, "The following pathname selections and search constraints were applied:" NEWLINESTR);
   if (flag_config != NULL)
-    fprintf(output, "  --config=%s" NEWLINESTR, flag_config_file.c_str());
+  {
+    fprintf(output, "  --config=%s" NEWLINESTR, flag_config);
+    for (const auto& i : flag_config_files)
+      fprintf(output, "    using %s" NEWLINESTR, i.c_str());
+  }
+  if (flag_bool)
+    fprintf(output, "  --bool %s" NEWLINESTR, (flag_files ? "--files" : "--lines"));
+  if (flag_basic_regexp)
+    fprintf(output, "  --basic-regexp" NEWLINESTR);
+  else if (flag_fixed_strings)
+    fprintf(output, "  --fixed-strings" NEWLINESTR);
+  else if (flag_fuzzy > 0)
+    fprintf(output, "  --fuzzy" NEWLINESTR);
+  else if (flag_perl_regexp)
+    fprintf(output, "  --perl-regexp" NEWLINESTR);
+  if (flag_decompress)
+    fprintf(output, "  --decompress --zmax=%zu" NEWLINESTR, flag_zmax);
   if (flag_min_depth > 0 && flag_max_depth > 0)
     fprintf(output, "  --depth=%zu,%zu" NEWLINESTR, flag_min_depth, flag_max_depth);
   else if (flag_min_depth > 0)
@@ -127,8 +143,6 @@ void Stats::report(FILE *output)
     default:
       break;
   }
-  if (flag_files)
-    fprintf(output, "  --files" NEWLINESTR);
   if (flag_glob_ignore_case)
     fprintf(output, "  --glob-ignore-case" NEWLINESTR);
 #ifdef WITH_HIDDEN
@@ -142,7 +156,7 @@ void Stats::report(FILE *output)
   else
     fprintf(output, "  --no-hidden (default)" NEWLINESTR);
 #endif
-  for (auto& i : flag_ignore_files)
+  for (const auto& i : flag_ignore_files)
     fprintf(output, "  --ignore-files=\"%s\"" NEWLINESTR, i.c_str());
   if (flag_index != NULL)
     fprintf(output, "  --index" NEWLINESTR);
@@ -150,28 +164,34 @@ void Stats::report(FILE *output)
     fprintf(output, "  --min-count=%zu" NEWLINESTR, flag_min_count);
   if (flag_max_count > 0)
     fprintf(output, "  --max-count=%zu" NEWLINESTR, flag_max_count);
+  if (flag_max_files > 0)
+    fprintf(output, "  --max-files=%zu" NEWLINESTR, flag_max_files);
+  if (flag_min_line > 0)
+    fprintf(output, "  --min-line=%zu" NEWLINESTR, flag_min_line);
+  if (flag_max_line > 0)
+    fprintf(output, "  --max-line=%zu" NEWLINESTR, flag_max_line);
   if (flag_sort != NULL)
     fprintf(output, "  --sort=%s" NEWLINESTR, flag_sort);
-  for (auto& i : ignore)
+  for (const auto& i : ignore)
     fprintf(output, "    %s exclusions were applied to %s and its subdirectories" NEWLINESTR, i.c_str(), i.substr(0, i.find_last_of(PATHSEPCHR)).c_str());
-  for (auto& i : flag_file_magic)
+  for (const auto& i : flag_file_magic)
   {
     if (!i.empty() && (i.front() == '!' || i.front() == '^'))
       fprintf(output, "  --file-magic=\"!%s\" (negated)" NEWLINESTR, i.c_str() + 1);
     else
       fprintf(output, "  --file-magic=\"%s\"" NEWLINESTR, i.c_str());
   }
-  for (auto& i : flag_include_fs)
+  for (const auto& i : flag_include_fs)
     fprintf(output, "  --include-fs=\"%s\"" NEWLINESTR, i.c_str());
-  for (auto& i : flag_exclude_fs)
+  for (const auto& i : flag_exclude_fs)
     fprintf(output, "  --exclude-fs=\"%s\"" NEWLINESTR, i.c_str());
-  for (auto& i : flag_all_include)
+  for (const auto& i : flag_all_include)
     fprintf(output, "  --include=\"%s\"%s%s" NEWLINESTR, i.c_str(), i.front() == '!' ? " (negated)" : "", &i < &flag_all_include.front() + flag_include_iglob_size ? " (ignore case)" : "");
-  for (auto& i : flag_all_exclude)
+  for (const auto& i : flag_all_exclude)
     fprintf(output, "  --exclude=\"%s\"%s%s" NEWLINESTR, i.c_str(), i.front() == '!' ? " (negated)" : "", &i < &flag_all_exclude.front() + flag_exclude_iglob_size ? " (ignore case)" : "");
-  for (auto& i : flag_all_include_dir)
+  for (const auto& i : flag_all_include_dir)
     fprintf(output, "  --include-dir=\"%s\"%s%s" NEWLINESTR, i.c_str(), i.front() == '!' ? " (negated)" : "", &i < &flag_all_include_dir.front() + flag_include_iglob_dir_size ? " (ignore case)" : "");
-  for (auto& i : flag_all_exclude_dir)
+  for (const auto& i : flag_all_exclude_dir)
     fprintf(output, "  --exclude-dir=\"%s\"%s%s" NEWLINESTR, i.c_str(), i.front() == '!' ? " (negated)" : "", &i < &flag_all_exclude_dir.front() + flag_exclude_iglob_dir_size ? " (ignore case)" : "");
 }
 

@@ -38,8 +38,8 @@
 #define FLAG_HPP
 
 #include <reflex/input.h>
-#include <set>
 #include <string>
+#include <set>
 #include <vector>
 
 // three-valued logic flags that behave as bool; this allows us to check if a flag was undefined (default) and explicitly enabled/disabled
@@ -109,7 +109,6 @@ extern bool flag_null;
 extern bool flag_only_line_number;
 extern bool flag_only_matching;
 extern bool flag_perl_regexp;
-extern bool flag_pretty;
 extern bool flag_query;
 extern bool flag_quiet;
 extern bool flag_sort_rev; // internal flag
@@ -158,6 +157,7 @@ extern size_t flag_max_depth;
 extern size_t flag_max_files;
 extern size_t flag_max_line;
 extern size_t flag_max_mmap;
+extern size_t flag_max_queue;
 extern size_t flag_min_count;
 extern size_t flag_min_depth;
 extern size_t flag_min_line;
@@ -167,7 +167,6 @@ extern size_t flag_not_magic;
 extern size_t flag_tabs;
 extern size_t flag_width;
 extern size_t flag_zmax;
-extern const char *flag_apply_color; // internal flag
 extern const char *flag_binary_files;
 extern const char *flag_color;
 extern const char *flag_colors;
@@ -186,21 +185,21 @@ extern const char *flag_hyperlink;
 extern const char *flag_index;
 extern const char *flag_label;
 extern const char *flag_pager;
+extern const char *flag_pretty;
 extern const char *flag_replace;
 extern const char *flag_save_config;
 extern const char *flag_separator;
 extern const char *flag_separator_dash; // internal flag
-extern const char *flag_separator_plus; // internal flag
 extern const char *flag_separator_bar; // internal flag
 extern const char *flag_sort;
 extern const char *flag_stats;
 extern const char *flag_tag;
 extern const char *flag_view;
-extern std::string flag_config_file;
-extern std::string flag_filter;
-extern std::string flag_hyperlink_prefix; // internal flag
-extern std::string flag_hyperlink_path; // internal flag
-extern std::set<std::string> flag_config_options;
+extern std::string              flag_filter;
+extern std::string              flag_hyperlink_prefix; // internal flag
+extern std::string              flag_hyperlink_path; // internal flag
+extern std::set<std::string>    flag_config_files; // internal flag
+extern std::set<std::string>    flag_ignore_files;
 extern std::vector<std::string> flag_regexp;
 extern std::vector<std::string> flag_file;
 extern std::vector<std::string> flag_file_type;
@@ -209,7 +208,6 @@ extern std::vector<std::string> flag_file_magic;
 extern std::vector<std::string> flag_filter_magic_label;
 extern std::vector<std::string> flag_glob;
 extern std::vector<std::string> flag_iglob;
-extern std::vector<std::string> flag_ignore_files;
 extern std::vector<std::string> flag_include;
 extern std::vector<std::string> flag_include_dir;
 extern std::vector<std::string> flag_include_from;

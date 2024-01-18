@@ -89,6 +89,7 @@ inline int fopen_s(FILE **file, const char *name, const char *mode) { return ::f
 inline int fopen_s(FILE **file, const char *name, const char *mode) { return (*file = ::fopen(name, mode)) ? 0 : errno; }
 #endif
 
+#ifndef WITH_NO_CODEGEN
 static void print_char(FILE *file, int c, bool h = false)
 {
   if (c >= '\a' && c <= '\r')
@@ -104,6 +105,28 @@ static void print_char(FILE *file, int c, bool h = false)
   else
     ::fprintf(file, "%u", c);
 }
+#endif
+
+#ifndef WITH_NO_CODEGEN
+static const char *meta_label[] = {
+  NULL,
+  "WBB",
+  "WBE",
+  "NWB",
+  "NWE",
+  "BWB",
+  "EWB",
+  "BWE",
+  "EWE",
+  "BOL",
+  "EOL",
+  "BOB",
+  "EOB",
+  "UND",
+  "IND",
+  "DED",
+};
+#endif
 
 static const char *posix_class[] = {
   "ASCII",
@@ -120,23 +143,6 @@ static const char *posix_class[] = {
   "Punct",
   "Upper",
   "Word",
-};
-
-static const char *meta_label[] = {
-  NULL,
-  "NWB",
-  "NWE",
-  "BWB",
-  "EWB",
-  "BWE",
-  "EWE",
-  "BOL",
-  "EOL",
-  "BOB",
-  "EOB",
-  "UND",
-  "IND",
-  "DED",
 };
 
 const std::string Pattern::operator[](Accept choice) const
@@ -2484,10 +2490,7 @@ void Pattern::compile_transition(
                       trim_anchors(follow, *k);
                       break;
                     case 'b':
-                      if (k->anchor())
-                        chars.add(META_BWB, META_EWB);
-                      else
-                        chars.add(META_BWE, META_EWE);
+                      chars.add(k->anchor() ? META_WBB : META_WBE);
                       trim_anchors(follow, *k);
                       break;
                     case '<':
@@ -3049,6 +3052,7 @@ void Pattern::encode_dfa(DFA::State *start)
 
 void Pattern::gencode_dfa(const DFA::State *start) const
 {
+#ifndef WITH_NO_CODEGEN
   for (std::vector<std::string>::const_iterator i = opt_.f.begin(); i != opt_.f.end(); ++i)
   {
     const std::string& filename = *i;
@@ -3120,7 +3124,7 @@ void Pattern::gencode_dfa(const DFA::State *start) const
             {
               if (lo == META_EOB || lo == META_EOL)
                 peek = true;
-              else if (lo == META_EWE || lo == META_BWE || lo == META_NWE)
+              else if (lo == META_EWE || lo == META_BWE || lo == META_NWE || lo == META_WBE)
                 prev = peek = true;
               if (prev && peek)
                 break;
@@ -3175,6 +3179,7 @@ void Pattern::gencode_dfa(const DFA::State *start) const
                 case META_EWE:
                 case META_BWE:
                 case META_NWE:
+                case META_WBE:
                   ::fprintf(file, "  ");
                   if (elif)
                     ::fprintf(file, "else ");
@@ -3264,6 +3269,7 @@ void Pattern::gencode_dfa(const DFA::State *start) const
                 case META_EWE:
                 case META_BWE:
                 case META_NWE:
+                case META_BWE:
                   ::fprintf(file, "  ");
                   if (elif)
                     ::fprintf(file, "else ");
@@ -3351,8 +3357,12 @@ void Pattern::gencode_dfa(const DFA::State *start) const
         ::fclose(file);
     }
   }
+#else
+  (void)start;
+#endif
 }
 
+#ifndef WITH_NO_CODEGEN
 void Pattern::check_dfa_closure(const DFA::State *state, int nest, bool& peek, bool& prev) const
 {
   if (nest > 5)
@@ -3372,7 +3382,7 @@ void Pattern::check_dfa_closure(const DFA::State *state, int nest, bool& peek, b
       {
         if (lo == META_EOB || lo == META_EOL)
           peek = true;
-        else if (lo == META_EWE || lo == META_BWE || lo == META_NWE)
+        else if (lo == META_EWE || lo == META_BWE || lo == META_NWE || lo == META_WBE)
           prev = peek = true;
         if (prev && peek)
           break;
@@ -3381,7 +3391,9 @@ void Pattern::check_dfa_closure(const DFA::State *state, int nest, bool& peek, b
     }
   }
 }
+#endif
 
+#ifndef WITH_NO_CODEGEN
 void Pattern::gencode_dfa_closure(FILE *file, const DFA::State *state, int nest, bool peek) const
 {
   bool elif = false;
@@ -3431,6 +3443,7 @@ void Pattern::gencode_dfa_closure(FILE *file, const DFA::State *state, int nest,
           case META_EWE:
           case META_BWE:
           case META_NWE:
+          case META_WBE:
             ::fprintf(file, "%*s", 2*nest, "");
             if (elif)
               ::fprintf(file, "else ");
@@ -3543,9 +3556,11 @@ void Pattern::gencode_dfa_closure(FILE *file, const DFA::State *state, int nest,
   }
 #endif
 }
+#endif
 
 void Pattern::graph_dfa(const DFA::State *start) const
 {
+#ifndef WITH_NO_CODEGEN
   for (std::vector<std::string>::const_iterator i = opt_.f.begin(); i != opt_.f.end(); ++i)
   {
     const std::string& filename = *i;
@@ -3687,10 +3702,14 @@ void Pattern::graph_dfa(const DFA::State *start) const
       }
     }
   }
+#else
+  (void)start;
+#endif
 }
 
 void Pattern::export_code() const
 {
+#ifndef WITH_NO_CODEGEN
   if (nop_ == 0)
     return;
   for (std::vector<std::string>::const_iterator i = opt_.f.begin(); i != opt_.f.end(); ++i)
@@ -3789,6 +3808,7 @@ void Pattern::export_code() const
       }
     }
   }
+#endif
 }
 
 void Pattern::predict_match_dfa(const DFA::State *start)
@@ -3798,7 +3818,7 @@ void Pattern::predict_match_dfa(const DFA::State *start)
   one_ = true;
   while (state->accept == 0)
   {
-    if (state->edges.size() != 1)
+    if (state->edges.size() != 1 || !state->heads.empty())
     {
       one_ = false;
       break;
@@ -3826,7 +3846,7 @@ void Pattern::predict_match_dfa(const DFA::State *start)
     }
     state = next;
   }
-  if (state != NULL && state->accept > 0 && !state->edges.empty())
+  if (state != NULL && ((state->accept > 0 && !state->edges.empty()) || state->redo))
     one_ = false;
   min_ = 0;
   std::memset(bit_, 0xFF, sizeof(bit_));
