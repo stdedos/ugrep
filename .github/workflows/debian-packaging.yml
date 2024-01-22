@@ -5,7 +5,7 @@ on:
     tags:
       - 'v*'
     branches:
-      - 'ci/playground/actions-release'
+      - 'ci/playground/*'
       - 'main'
       - 'master'
 
@@ -79,6 +79,7 @@ jobs:
 
   sanity-checks:
     runs-on: ubuntu-latest
+    continue-on-error: ${{ startsWith(github.ref, 'refs/heads/ci/playground/') || github.ref != 'refs/heads/ci/playground/actions-release' }}
 
     steps:
     - name: Checkout code
@@ -126,12 +127,9 @@ jobs:
       run: |
         git config --global --add safe.directory /__w/ugrep/ugrep
 
-        # Get the package version ... except latest
-        case "${{ github.ref }}" in
-          refs/heads/main) git tag -d latest;;
-          refs/heads/master) git tag -d latest;;
-          *) ;;
-        esac
+        # Get the package version ...
+        # except latest, since it is also a git-tag :/
+        git tag -d latest
 
         # Get the package version
         export UGREP_VERSION="$(git describe --tags --abbrev=0 | sed 's/v//g' | cut -f1 -d-)"
@@ -190,6 +188,7 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    if: ${{ ! startsWith(github.ref, 'refs/heads/ci/playground/') || github.ref == 'refs/heads/ci/playground/actions-release' }}
     steps:
     - name: Download all artifacts
       uses: actions/download-artifact@v3
