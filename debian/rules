@@ -41,3 +41,19 @@ licensecheck:
 		> debian/copyright_newhints
 	cmp debian/copyright_hints debian/copyright_newhints \
 		&& rm debian/copyright_newhints
+
+# Generate Debug Package: https://wiki.debian.org/DebugPackage
+export PACKAGE_NAME=ugrep
+
+export DEB_CFLAGS_MAINT_APPEND = -g
+export DEB_CXXFLAGS_MAINT_APPEND = -g
+
+.PHONY: override_dh_strip
+override_dh_strip:
+	dh_strip --dbg-package=$(PACKAGE_NAME)-dbg
+
+override_dh_auto_install:
+	dh_auto_install --destdir=debian/$(PACKAGE_NAME)
+
+override_dh_installdocs:
+	dh_installdocs --link-doc=$(PACKAGE_NAME)

@@ -3,6 +3,8 @@ Section: utils
 Priority: optional
 Maintainer: Stavros Ntentos <133706+stdedos@users.noreply.github.com>
 Build-Depends: debhelper-compat (= 12),
+# For debug symbol package generation
+               debhelper (>= 7.0.50),
                libbz2-dev,
                liblzma-dev,
                libpcre2-dev,
@@ -49,3 +51,13 @@ Description: ultra fast grep with interactive query UI and fuzzy search
   - Output results in CSV, JSON, XML, and user-specified formats
   - Sort matching files by name, size, and time
   - Portable, compiles and runs on Linux, Unix, Mac OS X, Windows, etc.
+
+Package: ugrep-dbg
+Architecture: any
+Section: debug
+Priority: extra
+Depends:
+    ugrep (= ${binary:Version}),
+    ${misc:Depends}
+Description: debugging symbols for ugrep
+ This package contains the debugging symbols for ugrep.

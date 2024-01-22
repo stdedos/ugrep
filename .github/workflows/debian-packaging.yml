@@ -181,6 +181,7 @@ jobs:
         name: ugrep-${{ steps.get_os_version.outputs.version }}-deb
         path: |
           *.deb
+          *.ddeb
           .git-describe
           debian/changelog
         if-no-files-found: error
