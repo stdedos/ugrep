@@ -1,3 +1,10 @@
+ugrep (5.0.0-26) focal; urgency=medium
+
+* Update upstream version: https://github.com/Genivia/ugrep/tree/v5.0.0
+  (https://github.com/Genivia/ugrep/commit/c7bda84dca5541bc84f1c98b54d38a87b928e7c2)
+
+ -- Stavros Ntentos <133706+stdedos@users.noreply.github.com>  Tue, 07 Jul 2026 19:30:19 +0300
+
 ugrep (4.5.2-23) focal; urgency=medium
 
   * Update upstream version: https://github.com/Genivia/ugrep/tree/v4.5.2
