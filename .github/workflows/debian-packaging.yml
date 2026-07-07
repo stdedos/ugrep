@@ -71,7 +71,7 @@ jobs:
           ${{ steps.meta.outputs.tags }}-${{ steps.git_short_ref.outputs.sha }}
 
     - name: ugrep-build-sha artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v7
       with:
         name: ugrep-build-sha
         path: |
@@ -152,7 +152,7 @@ jobs:
         mk-build-deps
 
     - name: Archive production artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v7
       with:
         name: ugrep-${{ steps.get_os_version.outputs.version }}-build-deps
         path: |
@@ -176,7 +176,7 @@ jobs:
         ls -lah ..
 
     - name: Upload deb as artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v7
       with:
         name: ugrep-${{ steps.get_os_version.outputs.version }}-deb
         path: |
