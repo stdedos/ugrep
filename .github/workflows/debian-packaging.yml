@@ -191,7 +191,7 @@ jobs:
     if: ${{ ! startsWith(github.ref, 'refs/heads/ci/playground/') || github.ref == 'refs/heads/ci/playground/actions-release' }}
     steps:
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v8
 
     - name: Prepare the release details
       run: |
