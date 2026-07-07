@@ -3,7 +3,7 @@ FROM ubuntu:${VERSION}
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-COPY ./0xe1dd270288b4e6030699e45fa1715d88e1df1f24.gpg /etc/apt/trusted.gpg.d/
+COPY ./0xF911AB184317630C59970973E363C90F8F1B6217.gpg /etc/apt/trusted.gpg.d/
 
 RUN : && \
 # Instead of add-apt-repository and a two-stage apt-get
